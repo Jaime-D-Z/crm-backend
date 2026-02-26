@@ -1,0 +1,39 @@
+{
+  "name": "secureauth-node",
+  "version": "1.0.0",
+  "description": "Secure Node.js auth system with OTP and audit logs",
+  "main": "server.js",
+  "scripts": {
+    "start": "NODE_ENV=production node server.js",
+    "start:prod": "NODE_ENV=production node server.js",
+    "dev": "NODE_ENV=development nodemon server.js",
+    "seed": "node database/seed.js",
+    "migrate": "node database/migrate.js",
+    "seed:roles": "node database/seed-roles.js",
+    "test": "echo \"No tests specified\" && exit 0",
+    "lint": "echo \"No linter configured\" && exit 0"
+  },
+  "dependencies": {
+    "axios": "^1.13.5",
+    "bcrypt": "^5.1.1",
+    "connect-pg-simple": "^9.0.1",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.2.1",
+    "express-session": "^1.18.0",
+    "express-validator": "^7.3.1",
+    "fast-levenshtein": "^3.0.0",
+    "helmet": "^8.1.0",
+    "json2csv": "^6.0.0-alpha.2",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.0.2",
+    "nodemailer": "^6.9.13",
+    "pg": "^8.13.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
