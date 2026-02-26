@@ -69,7 +69,7 @@ if (config.trustProxy) {
 // ═══════════════════════════════════════════════════════════
 // SECURITY MIDDLEWARE
 // ═══════════════════════════════════════════════════════════
-app.use(forceHttps); // Force HTTPS in production
+//app.use(forceHttps); // Force HTTPS in production
 app.use(helmetConfig); // Security headers
 app.use(requestLogger); // HTTP request logging
 app.use(apiSecurityHeaders); // API-specific security headers
@@ -77,8 +77,7 @@ app.use(apiSecurityHeaders); // API-specific security headers
 // ═══════════════════════════════════════════════════════════
 // CORS CONFIGURATION
 // ═══════════════════════════════════════════════════════════
-app.use(cors(config.cors));
-
+app.use(cors({ origin: true, credentials: true }));
 // ═══════════════════════════════════════════════════════════
 // BODY PARSERS
 // ═══════════════════════════════════════════════════════════
