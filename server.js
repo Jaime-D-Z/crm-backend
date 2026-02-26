@@ -107,6 +107,10 @@ app.use(
       secure: config.session.secure, // true in production (HTTPS only)
       sameSite: config.session.sameSite,
       maxAge: config.session.maxAge,
+      // Add domain in production for cross-subdomain support
+      ...(config.isProduction && process.env.COOKIE_DOMAIN && {
+        domain: process.env.COOKIE_DOMAIN
+      })
     },
   })
 );

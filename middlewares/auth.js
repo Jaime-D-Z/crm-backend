@@ -39,7 +39,23 @@ function requireAuth(req, res, next) {
       req.session.primerAcceso = !!decoded.primerAcceso;
       return next();
     } catch (err) {
-      return res.status(401).json({ error: 'Token inválido o expirado.', code: 'INVALID_TOKEN' });
+      // Distinguish between expired and invalid tokens
+      if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({ 
+          error: 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.', 
+          code: 'TOKEN_EXPIRED' 
+        });
+      }
+      if (err.name === 'JsonWebTokenError') {
+        return res.status(401).json({ 
+          error: 'Token inválido. Por favor, inicia sesión nuevamente.', 
+          code: 'INVALID_TOKEN' 
+        });
+      }
+      return res.status(401).json({ 
+        error: 'Error de autenticación.', 
+        code: 'AUTH_ERROR' 
+      });
     }
   }
 
