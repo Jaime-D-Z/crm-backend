@@ -44,7 +44,7 @@ const config = {
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   
   // Security
-  trustProxy: isProduction, // Enable when behind reverse proxy (Nginx, AWS ALB, Render)
+  trustProxy: isProduction, // Enable when behind reverse proxy (Nginx)
   forceHttps: isProduction && process.env.FORCE_HTTPS !== 'false',
   
   // Database
@@ -54,12 +54,10 @@ const config = {
     user: process.env.DB_USER,
     password: process.env.DB_PASS,
     database: process.env.DB_NAME,
-    // Connection pool settings
     max: parseInt(process.env.DB_POOL_MAX) || (isProduction ? 20 : 10),
     min: parseInt(process.env.DB_POOL_MIN) || (isProduction ? 5 : 2),
     idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 30000,
     connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 5000,
-    // SSL for production databases (AWS RDS, Neon, etc.)
     ssl: isProduction && process.env.DB_SSL !== 'false' ? {
       rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false'
     } : false
@@ -77,58 +75,41 @@ const config = {
   session: {
     secret: process.env.SESSION_SECRET,
     name: 'crm.sid',
-    maxAge: parseInt(process.env.SESSION_MAX_AGE) || 8 * 60 * 60 * 1000, // 8 hours
-    secure: isProduction, // Only send cookie over HTTPS in production
-    sameSite: isProduction ? 'strict' : 'lax'
+    maxAge: parseInt(process.env.SESSION_MAX_AGE) || 8 * 60 * 60 * 1000,
+    secure: isProduction, 
+    // "none" es obligatorio para que la cookie funcione entre Vercel y DuckDNS
+    sameSite: isProduction ? 'none' : 'lax'
   },
   
-  // CORS - Configuración para Vercel + DuckDNS
+  // CORS Configuration
   cors: {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (Postman, curl, mobile apps)
-    if (!origin) return callback(null, true);
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
 
-    // ✅ Check Vercel subdomains FIRST (before building allowedOrigins)
-    if (isProduction && process.env.ALLOW_VERCEL_SUBDOMAINS === 'true' && origin.includes('.vercel.app')) {
-      console.log(`✅ CORS allowed (Vercel subdomain): "${origin}"`);
-      return callback(null, true);
-    }
+      const isVercel = origin.includes('.vercel.app');
+      const allowedOrigins = [
+        process.env.FRONTEND_URL,
+        process.env.FRONTEND_URL_DEV,
+        'https://crm-frontend-jaime-d-zs-projects.vercel.app'
+      ].filter(Boolean);
 
-    // Build allowed origins list
-    const allowedOrigins = [];
+      if (allowedOrigins.includes(origin) || (isProduction && isVercel)) {
+        return callback(null, true);
+      }
 
-    if (isProduction) {
-      if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
-      if (process.env.FRONTEND_URL_DEV) allowedOrigins.push(process.env.FRONTEND_URL_DEV);
-    } else {
-      allowedOrigins.push(
-        'http://localhost:5173',
-        'http://localhost:3000',
-        'http://127.0.0.1:5173'
-      );
-    }
-
-    if (allowedOrigins.includes(origin)) {
-      console.log(`✅ CORS allowed (exact match): "${origin}"`);
-      return callback(null, true);
-    }
-
-    // ✅ Log the ACTUAL blocked origin so you can see exactly what's failing
-    console.error(`❌ CORS blocked origin: "${origin}"`);
-    console.error(`   Allowed origins: ${allowedOrigins.join(', ')}`);
-    console.error(`   ALLOW_VERCEL_SUBDOMAINS: ${process.env.ALLOW_VERCEL_SUBDOMAINS}`);
-    callback(new Error('Not allowed by CORS'));
+      console.error(`❌ CORS blocked origin: "${origin}"`);
+      callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    optionsSuccessStatus: 200,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    exposedHeaders: ['set-cookie']
   },
-  credentials: true,
-  optionsSuccessStatus: 200,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['set-cookie']
-},
   
   // Rate Limiting
   rateLimit: {
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW) || 15 * 60 * 1000, // 15 minutes
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW) || 15 * 60 * 1000,
     maxRequests: parseInt(process.env.RATE_LIMIT_MAX) || (isProduction ? 100 : 1000),
     loginMaxAttempts: parseInt(process.env.LOGIN_MAX_ATTEMPTS) || 5
   },
@@ -145,7 +126,7 @@ const config = {
   
   // File Upload
   upload: {
-    maxSize: parseInt(process.env.UPLOAD_MAX_SIZE) || 2 * 1024 * 1024, // 2MB
+    maxSize: parseInt(process.env.UPLOAD_MAX_SIZE) || 2 * 1024 * 1024,
     allowedTypes: ['.jpg', '.jpeg', '.png', '.webp']
   },
   
