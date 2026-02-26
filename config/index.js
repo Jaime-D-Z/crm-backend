@@ -88,17 +88,18 @@ const config = {
     // Allow requests with no origin (Postman, curl, mobile apps)
     if (!origin) return callback(null, true);
 
+    // ✅ Check Vercel subdomains FIRST (before building allowedOrigins)
+    if (isProduction && process.env.ALLOW_VERCEL_SUBDOMAINS === 'true' && origin.includes('.vercel.app')) {
+      console.log(`✅ CORS allowed (Vercel subdomain): "${origin}"`);
+      return callback(null, true);
+    }
+
     // Build allowed origins list
     const allowedOrigins = [];
 
     if (isProduction) {
       if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
       if (process.env.FRONTEND_URL_DEV) allowedOrigins.push(process.env.FRONTEND_URL_DEV);
-
-      // ✅ Check Vercel subdomains BEFORE the allowedOrigins check
-      if (process.env.ALLOW_VERCEL_SUBDOMAINS === 'true' && origin.includes('.vercel.app')) {
-        return callback(null, true);
-      }
     } else {
       allowedOrigins.push(
         'http://localhost:5173',
@@ -108,12 +109,14 @@ const config = {
     }
 
     if (allowedOrigins.includes(origin)) {
+      console.log(`✅ CORS allowed (exact match): "${origin}"`);
       return callback(null, true);
     }
 
     // ✅ Log the ACTUAL blocked origin so you can see exactly what's failing
     console.error(`❌ CORS blocked origin: "${origin}"`);
     console.error(`   Allowed origins: ${allowedOrigins.join(', ')}`);
+    console.error(`   ALLOW_VERCEL_SUBDOMAINS: ${process.env.ALLOW_VERCEL_SUBDOMAINS}`);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
