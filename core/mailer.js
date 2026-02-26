@@ -21,7 +21,7 @@ function getTransport() {
  */
 async function sendWelcomeEmail({ name, email, tempPassword }) {
   const appName = process.env.APP_NAME || 'CRM System';
-  const appUrl = process.env.APP_URL || 'http://localhost:5173';
+  const appUrl = process.env.FRONTEND_URL || 'https://crm-frontend-jaime-d-zs-projects.vercel.app';
 
   const html = `
 <!DOCTYPE html>
