@@ -22,9 +22,11 @@ function similarity(a, b) {
 
 function maxSimilarity(newName, newEmail, existingList) {
     let best = { score: 0, emp: null };
+    const prefix1 = newEmail ? newEmail.split('@')[0] : '';
     for (const emp of existingList) {
         const nameSim = similarity(newName, emp.name);
-        const emailSim = similarity(newEmail, emp.email);
+        const prefix2 = emp.email ? emp.email.split('@')[0] : '';
+        const emailSim = similarity(prefix1, prefix2);
         const score = Math.max(nameSim, emailSim);
         if (score > best.score) best = { score, emp };
     }
@@ -120,8 +122,8 @@ async function createEmployee(req, res) {
         const allEmployees = await Employee.getAll({});
         const { score, emp: similar } = maxSimilarity(name, email, allEmployees);
 
-        if (score >= 50 && !duplicateConfirmed) {
-            const isHardBlock = score >= 75;
+        if (score >= 65 && !duplicateConfirmed) {
+            const isHardBlock = score >= 85;
             await AuditDuplicate.record({
                 adminId: req.session.userId,
                 nombreNuevo: name,
@@ -142,7 +144,7 @@ async function createEmployee(req, res) {
         }
 
         // Registrar que fue aceptado tras advertencia
-        if (score >= 50 && duplicateConfirmed) {
+        if (score >= 65 && duplicateConfirmed) {
             await AuditDuplicate.record({
                 adminId: req.session.userId,
                 nombreNuevo: name,
