@@ -84,54 +84,44 @@ const config = {
   
   // CORS - Configuración para Vercel + DuckDNS
   cors: {
-    origin: function (origin, callback) {
-      // Lista de orígenes permitidos
-      const allowedOrigins = [];
-      
-      if (isProduction) {
-        // Producción: Vercel + DuckDNS
-        if (process.env.FRONTEND_URL) {
-          allowedOrigins.push(process.env.FRONTEND_URL);
-        }
-        
-        // Permitir todos los subdominios de Vercel (útil para preview deployments)
-        if (process.env.ALLOW_VERCEL_SUBDOMAINS === 'true') {
-          if (origin && origin.includes('.vercel.app')) {
-            return callback(null, true);
-          }
-        }
-        
-        // Permitir desarrollo local en producción (opcional para testing)
-        if (process.env.FRONTEND_URL_DEV) {
-          allowedOrigins.push(process.env.FRONTEND_URL_DEV);
-        }
-      } else {
-        // Desarrollo: localhost
-        allowedOrigins.push(
-          'http://localhost:5173',
-          'http://localhost:3000',
-          'http://127.0.0.1:5173'
-        );
+  origin: function (origin, callback) {
+    // Allow requests with no origin (Postman, curl, mobile apps)
+    if (!origin) return callback(null, true);
+
+    // Build allowed origins list
+    const allowedOrigins = [];
+
+    if (isProduction) {
+      if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
+      if (process.env.FRONTEND_URL_DEV) allowedOrigins.push(process.env.FRONTEND_URL_DEV);
+
+      // ✅ Check Vercel subdomains BEFORE the allowedOrigins check
+      if (process.env.ALLOW_VERCEL_SUBDOMAINS === 'true' && origin.includes('.vercel.app')) {
+        return callback(null, true);
       }
-      
-      // Permitir requests sin origin (Postman, curl, apps móviles)
-      if (!origin) return callback(null, true);
-      
-      // Verificar si el origin está permitido
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        callback(null, true);
-      } else {
-        console.error(`❌ CORS blocked origin: ${origin}`);
-        console.error(`   Allowed origins: ${allowedOrigins.join(', ')}`);
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    credentials: true,
-    optionsSuccessStatus: 200,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    exposedHeaders: ['set-cookie']
+    } else {
+      allowedOrigins.push(
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'http://127.0.0.1:5173'
+      );
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // ✅ Log the ACTUAL blocked origin so you can see exactly what's failing
+    console.error(`❌ CORS blocked origin: "${origin}"`);
+    console.error(`   Allowed origins: ${allowedOrigins.join(', ')}`);
+    callback(new Error('Not allowed by CORS'));
   },
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['set-cookie']
+},
   
   // Rate Limiting
   rateLimit: {
