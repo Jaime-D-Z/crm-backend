@@ -22,12 +22,30 @@ function similarity(a, b) {
 
 function maxSimilarity(newName, newEmail, existingList) {
     let best = { score: 0, emp: null };
-    const prefix1 = newEmail ? newEmail.split('@')[0] : '';
+    const prefix1 = newEmail ? newEmail.split('@')[0].toLowerCase() : '';
+    
     for (const emp of existingList) {
         const nameSim = similarity(newName, emp.name);
-        const prefix2 = emp.email ? emp.email.split('@')[0] : '';
+        const prefix2 = emp.email ? emp.email.split('@')[0].toLowerCase() : '';
         const emailSim = similarity(prefix1, prefix2);
-        const score = Math.max(nameSim, emailSim);
+        
+        // Calcular score combinado: ambos deben ser altos para ser considerado duplicado
+        // Si solo uno es alto, reducir el score significativamente
+        let score;
+        if (nameSim >= 80 && emailSim >= 80) {
+            // Ambos muy similares: promedio alto
+            score = (nameSim + emailSim) / 2;
+        } else if (nameSim >= 90 || emailSim >= 90) {
+            // Solo uno es casi idéntico: usar ese valor pero reducido
+            score = Math.max(nameSim, emailSim) * 0.85;
+        } else if (nameSim >= 70 && emailSim >= 70) {
+            // Ambos moderadamente similares: promedio
+            score = (nameSim + emailSim) / 2;
+        } else {
+            // Uno o ambos son diferentes: promedio ponderado favoreciendo el email
+            score = (nameSim * 0.3 + emailSim * 0.7);
+        }
+        
         if (score > best.score) best = { score, emp };
     }
     return best;
