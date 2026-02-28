@@ -133,10 +133,12 @@ async function createEmployee(req, res) {
     } = req.body;
 
     try {
-        // ── Check if email exists in users OR employees table ───────
-        const emailTakenInUsers = await User.emailExists(email);
-        if (emailTakenInUsers) {
-            return res.status(400).json({ error: 'El correo electrónico ya está registrado en usuarios.' });
+        // ── Check if email exists in ACTIVE users ───────
+        const existingUser = await User.findByEmail(email);
+        if (existingUser && existingUser.is_active) {
+            return res.status(400).json({ 
+                error: 'El correo electrónico ya está registrado por un usuario activo.' 
+            });
         }
 
         // Check if email exists in employees table
@@ -406,18 +408,30 @@ async function deleteEmployee(req, res) {
         const emp = await Employee.findById(req.params.id);
         if (!emp) return res.status(404).json({ error: 'Empleado no encontrado' });
 
+        // If employee has a linked user, delete it completely
         if (emp.user_id) {
-            await User.setActive(emp.user_id, false);
+            // Delete user completely to allow email reuse
+            await query('DELETE FROM users WHERE id = $1', [emp.user_id]);
         }
 
+        // Delete employee
         await query('DELETE FROM employees WHERE id = $1', [req.params.id]);
+        
         await AuditLog.log(req.session.userId, 'employee_deleted', req, {
-            employeeId: req.params.id, employeeName: emp.name
+            employeeId: req.params.id, employeeName: emp.name, employeeEmail: emp.email
         });
 
         res.json({ ok: true, message: 'Empleado eliminado correctamente.' });
     } catch (err) {
         console.error('deleteEmployee error:', err);
+        
+        // Check if error is due to foreign key constraint
+        if (err.code === '23503') {
+            return res.status(400).json({ 
+                error: 'No se puede eliminar el empleado porque tiene registros asociados (asistencias, proyectos, etc.). Desactívalo en su lugar.' 
+            });
+        }
+        
         res.status(500).json({ error: 'Error del servidor' });
     }
 }
