@@ -29,6 +29,10 @@ const models = [
     {
         name: 'face_recognition_model-shard1',
         url: 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/face_recognition_model-shard1'
+    },
+    {
+        name: 'face_recognition_model-shard2',
+        url: 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/face_recognition_model-shard2'
     }
 ];
 
