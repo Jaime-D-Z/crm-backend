@@ -257,6 +257,11 @@ app.delete(
   checkPermission("RRHH", "eliminar"),
   adminCtrl.deleteEmployee
 );
+app.delete(
+  "/api/admin/employees/:id/permanent",
+  requireAdmin,
+  adminCtrl.permanentlyDeleteEmployee
+);
 app.post(
   "/api/admin/employees/:id/photo",
   requireAdmin,

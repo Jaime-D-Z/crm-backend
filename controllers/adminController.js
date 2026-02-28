@@ -409,7 +409,7 @@ async function deleteEmployee(req, res) {
         const emp = await Employee.findById(req.params.id);
         if (!emp) return res.status(404).json({ error: 'Empleado no encontrado' });
 
-        // Instead of deleting, set status to 'inactive'
+        // Deactivate instead of delete (soft delete)
         await query(
             `UPDATE employees SET status = 'inactive', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
             [req.params.id]
@@ -431,8 +431,51 @@ async function deleteEmployee(req, res) {
     }
 }
 
+// ── DELETE PERMANENTLY (only super_admin) ────────────────
+async function permanentlyDeleteEmployee(req, res) {
+    try {
+        // Check if user is super_admin
+        if (req.session.roleName !== 'super_admin') {
+            return res.status(403).json({ 
+                error: 'Solo el Super Administrador puede eliminar empleados permanentemente.' 
+            });
+        }
+
+        const emp = await Employee.findById(req.params.id);
+        if (!emp) return res.status(404).json({ error: 'Empleado no encontrado' });
+
+        // Delete linked user if exists
+        if (emp.user_id) {
+            await query('DELETE FROM users WHERE id = $1', [emp.user_id]);
+        }
+
+        // Delete employee permanently
+        await query('DELETE FROM employees WHERE id = $1', [req.params.id]);
+        
+        await AuditLog.log(req.session.userId, 'employee_permanently_deleted', req, {
+            employeeId: req.params.id, 
+            employeeName: emp.name, 
+            employeeEmail: emp.email,
+            warning: 'PERMANENT_DELETE'
+        });
+
+        res.json({ ok: true, message: 'Empleado eliminado permanentemente.' });
+    } catch (err) {
+        console.error('permanentlyDeleteEmployee error:', err);
+        
+        // Check if error is due to foreign key constraint
+        if (err.code === '23503') {
+            return res.status(400).json({ 
+                error: 'No se puede eliminar el empleado porque tiene registros asociados (asistencias, proyectos, evaluaciones, etc.). Debe desactivarlo en su lugar.' 
+            });
+        }
+        
+        res.status(500).json({ error: 'Error del servidor' });
+    }
+}
+
 module.exports = {
     dashboard, listEmployees, getEmployee, createEmployee,
     updateEmployee, uploadPhoto, getAuditLogs, getDuplicates,
-    deleteEmployee, getConfig, updateConfig, createValidators,
+    deleteEmployee, permanentlyDeleteEmployee, getConfig, updateConfig, createValidators,
 };
