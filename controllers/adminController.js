@@ -349,7 +349,9 @@ async function updateEmployee(req, res) {
 
         const updated = await Employee.update(req.params.id, req.body);
         await AuditLog.log(req.session.userId, 'employee_updated', req, {
-            employeeId: req.params.id, changes: Object.keys(req.body),
+            employeeId: req.params.id, 
+            employeeName: updated.name || emp.name,
+            changes: Object.keys(req.body),
         });
 
         res.json({ ok: true, employee: updated, message: 'Empleado actualizado.' });

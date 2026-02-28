@@ -230,6 +230,7 @@ exports.marcarConRostro = async (req, res) => {
 
     // Extract face descriptor from captured photo
     const faceApiService = require('../services/faceApiService');
+    const AuditLog = require('../models/AuditLog');
     let capturedDescriptor;
     
     try {
@@ -237,7 +238,7 @@ exports.marcarConRostro = async (req, res) => {
     } catch (err) {
       console.error('Error extracting face descriptor:', err);
       
-      // Log failed attempt
+      // Log failed attempt in facial logs
       const facialConfigCtrl = require('./facialConfigController');
       await facialConfigCtrl.logRecognitionAttempt({
         userId: uid,
@@ -246,6 +247,12 @@ exports.marcarConRostro = async (req, res) => {
         threshold,
         status: 'failed',
         ipAddress: req.ip || req.connection.remoteAddress
+      });
+
+      // Log in general audit logs
+      await AuditLog.log(uid, 'facial_recognition_failed', req, {
+        reason: 'no_face_detected',
+        tipo
       });
 
       return res.status(400).json({ 
@@ -261,7 +268,7 @@ exports.marcarConRostro = async (req, res) => {
 
     // Check if faces match
     if (!comparison.match) {
-      // Log failed attempt
+      // Log failed attempt in facial logs
       const facialConfigCtrl = require('./facialConfigController');
       await facialConfigCtrl.logRecognitionAttempt({
         userId: uid,
@@ -272,6 +279,13 @@ exports.marcarConRostro = async (req, res) => {
         ipAddress: req.ip || req.connection.remoteAddress
       });
 
+      // Log in general audit logs
+      await AuditLog.log(uid, 'facial_recognition_failed', req, {
+        similarity: comparison.similarity,
+        threshold,
+        tipo
+      });
+
       return res.status(403).json({ 
         error: `Rostro no reconocido (similitud: ${comparison.similarity.toFixed(1)}%, mínimo requerido: ${threshold}%)`,
         similarity: comparison.similarity,
@@ -280,7 +294,7 @@ exports.marcarConRostro = async (req, res) => {
       });
     }
 
-    // Face matched! Log success
+    // Face matched! Log success in facial logs
     const facialConfigCtrl = require('./facialConfigController');
     await facialConfigCtrl.logRecognitionAttempt({
       userId: uid,
@@ -313,6 +327,14 @@ exports.marcarConRostro = async (req, res) => {
         [uid, fecha, hora]
       );
 
+      // Log in general audit logs
+      await AuditLog.log(uid, 'attendance_facial_checkin', req, {
+        similarity: comparison.similarity,
+        threshold,
+        hora,
+        fecha
+      });
+
       res.json({ 
         ok: true, 
         message: `Entrada registrada exitosamente`,
@@ -339,6 +361,14 @@ exports.marcarConRostro = async (req, res) => {
           [uid, fecha, hora]
         );
       }
+
+      // Log in general audit logs
+      await AuditLog.log(uid, 'attendance_facial_checkout', req, {
+        similarity: comparison.similarity,
+        threshold,
+        hora,
+        fecha
+      });
 
       res.json({ 
         ok: true, 

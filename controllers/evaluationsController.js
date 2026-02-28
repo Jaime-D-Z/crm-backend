@@ -22,7 +22,11 @@ async function create(req, res) {
         if (!emp) return res.status(404).json({ error: 'Empleado no encontrado.' });
 
         const evaluation = await Evaluation.create({ employeeId, evaluadorId, puntaje: parseInt(puntaje), comentario, fecha });
-        await AuditLog.log(evaluadorId, 'evaluation_created', req, { employeeId, puntaje });
+        await AuditLog.log(evaluadorId, 'evaluation_created', req, { 
+            employeeId, 
+            employeeName: emp.name,
+            puntaje 
+        });
 
         res.status(201).json({ ok: true, evaluation, message: 'Evaluación registrada.' });
     } catch (err) {
