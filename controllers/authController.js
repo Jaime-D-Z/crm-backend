@@ -196,23 +196,49 @@ async function logout(req, res) {
 async function me(req, res) {
   if (!req.session?.userId) return res.status(401).json({ error: 'Not authenticated' });
 
-  // Refresh permissions if not in session
-  let permisos = req.session.permisos || [];
-  if (!permisos.length && req.session.roleId) {
-    permisos = [...(await Permission.getByRole(req.session.roleId))];
-    req.session.permisos = permisos;
-  }
+  try {
+    // Get user data including photo
+    const user = await User.findById(req.session.userId);
+    
+    // Refresh permissions if not in session
+    let permisos = req.session.permisos || [];
+    if (!permisos.length && req.session.roleId) {
+      permisos = [...(await Permission.getByRole(req.session.roleId))];
+      req.session.permisos = permisos;
+    }
 
-  res.json({
-    userId: req.session.userId,
-    userName: req.session.userName,
-    userEmail: req.session.userEmail,
-    userRole: req.session.userRole,
-    roleName: req.session.roleName,
-    roleId: req.session.roleId,
-    primerAcceso: req.session.primerAcceso || false,
-    permisos,
-  });
+    res.json({
+      userId: req.session.userId,
+      userName: req.session.userName,
+      userEmail: req.session.userEmail,
+      userRole: req.session.userRole,
+      roleName: req.session.roleName,
+      roleId: req.session.roleId,
+      primerAcceso: req.session.primerAcceso || false,
+      photoUrl: user?.photo_url || null,
+      permisos,
+    });
+  } catch (err) {
+    console.error('me error:', err);
+    // Fallback to session data only
+    let permisos = req.session.permisos || [];
+    if (!permisos.length && req.session.roleId) {
+      permisos = [...(await Permission.getByRole(req.session.roleId))];
+      req.session.permisos = permisos;
+    }
+
+    res.json({
+      userId: req.session.userId,
+      userName: req.session.userName,
+      userEmail: req.session.userEmail,
+      userRole: req.session.userRole,
+      roleName: req.session.roleName,
+      roleId: req.session.roleId,
+      primerAcceso: req.session.primerAcceso || false,
+      photoUrl: null,
+      permisos,
+    });
+  }
 }
 
 // ── Forgot Password — Step 1: request OTP ─────────────────
