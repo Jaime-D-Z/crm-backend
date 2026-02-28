@@ -44,6 +44,7 @@ const {
 // Controllers
 const authCtrl = require("./controllers/authController");
 const faceAuthCtrl = require("./controllers/faceAuthController");
+const userCtrl = require("./controllers/userController");
 const adminCtrl = require("./controllers/adminController");
 const analyticsCtrl = require("./controllers/analyticsController");
 const employeeCtrl = require("./controllers/employeeController");
@@ -202,7 +203,6 @@ app.post("/api/auth/login", loginLimiter, authCtrl.login);
 app.post("/api/auth/verify-face", loginLimiter, faceAuthCtrl.verifyFace);
 app.post("/api/auth/logout", authCtrl.logout);
 app.get("/api/auth/me", requireAuth, authCtrl.me);
-app.get("/api/users", requireAdmin, authCtrl.listUsers);
 app.post(
   "/api/auth/change-password",
   requireAuth,
@@ -211,6 +211,16 @@ app.post(
 );
 app.post("/api/auth/forgot-password", authCtrl.requestPasswordReset);
 app.post("/api/auth/reset-password", authCtrl.confirmPasswordReset);
+
+// ═══════════════════════════════════════════════════════════
+// API ROUTES - USERS MANAGEMENT
+// ═══════════════════════════════════════════════════════════
+app.get("/api/users", requireAdmin, userCtrl.listUsers);
+app.post("/api/users", requireAdmin, ...userCtrl.createValidators, userCtrl.createUser);
+app.put("/api/users/:id", requireAdmin, userCtrl.updateUser);
+app.delete("/api/users/:id", requireAdmin, userCtrl.deleteUser);
+app.patch("/api/users/:id/status", requireAdmin, userCtrl.toggleStatus);
+app.post("/api/users/:id/reset-password", requireAdmin, userCtrl.resetPassword);
 
 // ═══════════════════════════════════════════════════════════
 // API ROUTES - ADMIN / EMPLOYEES
