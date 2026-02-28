@@ -262,6 +262,15 @@ async function createEmployee(req, res) {
                 await Employee.linkUser(employee.id, userRecord.id);
                 await User.linkEmployee(userRecord.id, employee.id);
 
+                // Copy photo and face descriptor from employee to user
+                if (savedPhotoUrl || faceDescriptor) {
+                    await query(
+                        `UPDATE users SET photo_url = $1, face_descriptor = $2 WHERE id = $3`,
+                        [savedPhotoUrl, faceDescriptor ? JSON.stringify(faceDescriptor) : null, userRecord.id]
+                    );
+                    console.log(`✅ Foto y descriptor copiados al usuario ${userRecord.id}`);
+                }
+
                 // Send welcome email (non-blocking)
                 if (tempPassword) {
                     sendWelcomeEmail({ name: name.trim(), email: email.toLowerCase(), tempPassword })
