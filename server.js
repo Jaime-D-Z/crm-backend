@@ -501,6 +501,7 @@ app.post(
 );
 app.post("/api/asistencia/entrada", requireAuth, asistCtrl.marcarEntrada);
 app.post("/api/asistencia/salida", requireAuth, asistCtrl.marcarSalida);
+app.post("/api/asistencia/facial", requireAuth, asistCtrl.marcarConRostro);
 
 // ═══════════════════════════════════════════════════════════
 // API ROUTES - PROYECTOS

@@ -196,3 +196,118 @@ exports.getHistorial = async (req, res) => {
     res.status(500).json({ error: "Error del servidor" });
   }
 };
+
+
+// ── Marcar asistencia con reconocimiento facial ──────────────────
+exports.marcarConRostro = async (req, res) => {
+  try {
+    const uid = req.session.userId;
+    const { photo_base64, tipo } = req.body; // tipo: 'entrada' o 'salida'
+
+    if (!photo_base64 || !tipo) {
+      return res.status(400).json({ error: 'Foto y tipo son requeridos' });
+    }
+
+    // Get user's stored face descriptor
+    const [user] = await query(
+      'SELECT id, name, face_descriptor, photo_url FROM users WHERE id = $1',
+      [uid]
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    if (!user.face_descriptor) {
+      return res.status(400).json({ 
+        error: 'No tienes una foto facial registrada. Por favor, actualiza tu perfil con una foto.' 
+      });
+    }
+
+    // Extract face descriptor from captured photo
+    const faceApiService = require('../services/faceApiService');
+    let capturedDescriptor;
+    
+    try {
+      capturedDescriptor = await faceApiService.getFaceDescriptorFromBase64(photo_base64);
+    } catch (err) {
+      console.error('Error extracting face descriptor:', err);
+      return res.status(400).json({ 
+        error: 'No se pudo detectar un rostro en la imagen. Asegúrate de que tu cara esté bien iluminada y de frente.' 
+      });
+    }
+
+    // Compare with stored descriptor
+    const storedDescriptor = JSON.parse(user.face_descriptor);
+    const comparison = faceApiService.compareFaceDescriptors(storedDescriptor, capturedDescriptor);
+
+    console.log(`🔍 Face comparison for ${user.name}:`, comparison);
+
+    // Check if faces match
+    if (!comparison.match) {
+      return res.status(403).json({ 
+        error: `Rostro no reconocido. Similitud: ${comparison.similarity}%. Por favor, intenta de nuevo o usa el método manual.`,
+        similarity: comparison.similarity
+      });
+    }
+
+    // Face matched! Mark attendance
+    const now = new Date();
+    const fecha = now.toISOString().slice(0, 10);
+    const hora = now.toTimeString().slice(0, 8);
+
+    if (tipo === 'entrada') {
+      // Check if already marked
+      const existing = await query(
+        'SELECT id FROM asistencia_registros WHERE usuario_id = $1 AND fecha = $2',
+        [uid, fecha]
+      );
+
+      if (existing.length > 0) {
+        return res.status(400).json({ error: 'Ya has registrado tu entrada hoy.' });
+      }
+
+      await query(
+        `INSERT INTO asistencia_registros (usuario_id, fecha, hora_entrada, estado, registrado_por, metodo_registro)
+         VALUES ($1, $2, $3, 'presente', $1, 'facial')`,
+        [uid, fecha, hora]
+      );
+
+      res.json({ 
+        ok: true, 
+        message: `✅ Entrada registrada con reconocimiento facial`,
+        hora,
+        similarity: comparison.similarity,
+        userName: user.name
+      });
+    } else {
+      // Mark salida
+      const result = await query(
+        `UPDATE asistencia_registros 
+         SET hora_salida = $1, updated_at = CURRENT_TIMESTAMP, metodo_registro = 'facial'
+         WHERE usuario_id = $2 AND fecha = $3`,
+        [hora, uid, fecha]
+      );
+
+      if (result.rowCount === 0) {
+        // If no entry exists, create one with only salida
+        await query(
+          `INSERT INTO asistencia_registros (usuario_id, fecha, hora_salida, estado, registrado_por, metodo_registro)
+           VALUES ($1, $2, $3, 'presente', $1, 'facial')`,
+          [uid, fecha, hora]
+        );
+      }
+
+      res.json({ 
+        ok: true, 
+        message: `✅ Salida registrada con reconocimiento facial`,
+        hora,
+        similarity: comparison.similarity,
+        userName: user.name
+      });
+    }
+  } catch (e) {
+    console.error('Asistencia facial error:', e);
+    res.status(500).json({ error: 'Error del servidor: ' + e.message });
+  }
+};
