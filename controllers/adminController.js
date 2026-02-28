@@ -141,16 +141,17 @@ async function createEmployee(req, res) {
             });
         }
 
-        // Check if email exists in employees table
+        // Check if email exists in ACTIVE employees
         const { query } = require('../core/db');
         const [existingEmployee] = await query(
-            'SELECT id, name FROM employees WHERE LOWER(email) = LOWER($1)',
+            `SELECT id, name, status FROM employees 
+             WHERE LOWER(email) = LOWER($1) AND status = 'active'`,
             [email]
         );
         
         if (existingEmployee) {
             return res.status(400).json({ 
-                error: `El correo electrónico ya está registrado por el empleado: ${existingEmployee.name}` 
+                error: `El correo electrónico ya está registrado por el empleado activo: ${existingEmployee.name}` 
             });
         }
 
@@ -408,30 +409,24 @@ async function deleteEmployee(req, res) {
         const emp = await Employee.findById(req.params.id);
         if (!emp) return res.status(404).json({ error: 'Empleado no encontrado' });
 
-        // If employee has a linked user, delete it completely
-        if (emp.user_id) {
-            // Delete user completely to allow email reuse
-            await query('DELETE FROM users WHERE id = $1', [emp.user_id]);
-        }
+        // Instead of deleting, set status to 'inactive'
+        await query(
+            `UPDATE employees SET status = 'inactive', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+            [req.params.id]
+        );
 
-        // Delete employee
-        await query('DELETE FROM employees WHERE id = $1', [req.params.id]);
+        // Deactivate linked user if exists
+        if (emp.user_id) {
+            await User.setActive(emp.user_id, false);
+        }
         
-        await AuditLog.log(req.session.userId, 'employee_deleted', req, {
+        await AuditLog.log(req.session.userId, 'employee_deactivated', req, {
             employeeId: req.params.id, employeeName: emp.name, employeeEmail: emp.email
         });
 
-        res.json({ ok: true, message: 'Empleado eliminado correctamente.' });
+        res.json({ ok: true, message: 'Empleado desactivado correctamente.' });
     } catch (err) {
         console.error('deleteEmployee error:', err);
-        
-        // Check if error is due to foreign key constraint
-        if (err.code === '23503') {
-            return res.status(400).json({ 
-                error: 'No se puede eliminar el empleado porque tiene registros asociados (asistencias, proyectos, etc.). Desactívalo en su lugar.' 
-            });
-        }
-        
         res.status(500).json({ error: 'Error del servidor' });
     }
 }
