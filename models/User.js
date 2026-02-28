@@ -79,7 +79,7 @@ class UserModel {
 
   async emailExists(email) {
     // Solo buscar usuarios activos para permitir reutilizar emails de usuarios eliminados
-    const rows = await query(`SELECT id FROM users WHERE email=$1 AND is_active=true LIMIT 1`, [email.toLowerCase().trim()]);
+    const rows = await query(`SELECT id FROM users WHERE email=$1 AND is_active=$2 LIMIT 1`, [email.toLowerCase().trim(), true]);
     return rows.length > 0;
   }
 
