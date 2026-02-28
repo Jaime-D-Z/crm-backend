@@ -23,12 +23,12 @@ function similarity(a, b) {
 function maxSimilarity(newName, newEmail, existingList) {
     let best = { score: 0, emp: null };
     const prefix1 = newEmail ? newEmail.split('@')[0].toLowerCase() : '';
-    
+
     for (const emp of existingList) {
         const nameSim = similarity(newName, emp.name);
         const prefix2 = emp.email ? emp.email.split('@')[0].toLowerCase() : '';
         const emailSim = similarity(prefix1, prefix2);
-        
+
         // Calcular score combinado: ambos deben ser altos para ser considerado duplicado
         // Si solo uno es alto, reducir el score significativamente
         let score;
@@ -37,7 +37,7 @@ function maxSimilarity(newName, newEmail, existingList) {
             score = (nameSim + emailSim) / 2;
         } else if (nameSim >= 90 || emailSim >= 90) {
             // Solo uno es casi idéntico: usar ese valor pero reducido
-            score = Math.max(nameSim, emailSim) * 0.85;
+            score = Math.max(nameSim, emailSim) * 0.80;
         } else if (nameSim >= 70 && emailSim >= 70) {
             // Ambos moderadamente similares: promedio
             score = (nameSim + emailSim) / 2;
@@ -45,7 +45,7 @@ function maxSimilarity(newName, newEmail, existingList) {
             // Uno o ambos son diferentes: promedio ponderado favoreciendo el email
             score = (nameSim * 0.3 + emailSim * 0.7);
         }
-        
+
         if (score > best.score) best = { score, emp };
     }
     return best;
@@ -192,28 +192,41 @@ async function createEmployee(req, res) {
 
         // ── Optionally create user account ────────────────────
         if (crearAcceso === 'true' || crearAcceso === true || password) {
-            const emailExists = await User.emailExists(email.toLowerCase());
-            if (!emailExists) {
-                let userRecord;
+            let userRecord = await User.findByEmail(email.toLowerCase());
 
-                if (password && password.length >= 8) {
-                    // Admin provided manual password
-                    userRecord = await User.create({
-                        name: name.trim(),
-                        email: email.toLowerCase(),
-                        password,
-                        role: 'employee',
-                        roleId: (roleId && !isNaN(parseInt(roleId))) ? parseInt(roleId) : 4,
-                        primerAcceso: false,
-                    });
+            if (userRecord && userRecord.is_active) {
+                // Safeguard contra condiciones de carrera
+                throw new Error("El usuario ya existe y está activo.");
+            } else {
+                const finalRoleId = (roleId && !isNaN(parseInt(roleId))) ? parseInt(roleId) : 4;
+
+                if (userRecord) {
+                    // Reactivar usuario inactivo
+                    if (password && password.length >= 8) {
+                        await User.reactivateWithPassword(userRecord.id, name.trim(), finalRoleId, password);
+                    } else {
+                        tempPassword = await User.reactivateWithTempPassword(userRecord.id, name.trim(), finalRoleId);
+                    }
+                    userRecord = await User.findById(userRecord.id);
                 } else {
-                    // Auto-generate temp password
-                    userRecord = await User.createWithTempPassword({
-                        name: name.trim(),
-                        email: email.toLowerCase(),
-                        roleId: (roleId && !isNaN(parseInt(roleId))) ? parseInt(roleId) : 4,
-                    });
-                    tempPassword = userRecord.tempPassword;
+                    // Crear nuevo usuario
+                    if (password && password.length >= 8) {
+                        userRecord = await User.create({
+                            name: name.trim(),
+                            email: email.toLowerCase(),
+                            password,
+                            role: 'employee',
+                            roleId: finalRoleId,
+                            primerAcceso: false,
+                        });
+                    } else {
+                        userRecord = await User.createWithTempPassword({
+                            name: name.trim(),
+                            email: email.toLowerCase(),
+                            roleId: finalRoleId,
+                        });
+                        tempPassword = userRecord.tempPassword;
+                    }
                 }
 
                 await Employee.linkUser(employee.id, userRecord.id);

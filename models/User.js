@@ -35,6 +35,24 @@ class UserModel {
     return { ...(await this.findById(id)), tempPassword: tempPass };
   }
 
+  async reactivateWithPassword(id, name, roleId, password) {
+    const hashed = await bcrypt.hash(password, SALT_ROUNDS);
+    await query(
+      `UPDATE users SET name=$1, role='employee', role_id=$2, password=$3, is_active=TRUE, primer_acceso=FALSE, temp_password=NULL WHERE id=$4`,
+      [name, roleId, hashed, id]
+    );
+  }
+
+  async reactivateWithTempPassword(id, name, roleId) {
+    const tempPass = this.generateTempPassword();
+    const hashed = await bcrypt.hash(tempPass, SALT_ROUNDS);
+    await query(
+      `UPDATE users SET name=$1, role='employee', role_id=$2, password=$3, temp_password=$4, is_active=TRUE, primer_acceso=TRUE WHERE id=$5`,
+      [name, roleId, hashed, hashed, id]
+    );
+    return tempPass;
+  }
+
   generateTempPassword() {
     const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     const lower = 'abcdefghjkmnpqrstuvwxyz';
