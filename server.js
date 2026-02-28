@@ -302,6 +302,15 @@ app.get(
 app.get("/api/admin/config", requireAdmin, adminCtrl.getConfig);
 app.put("/api/admin/config/:key", requireAdmin, adminCtrl.updateConfig);
 
+// API ROUTES - FACIAL RECOGNITION CONFIG
+// ═══════════════════════════════════════════════════════════
+const facialConfigCtrl = require('./controllers/facialConfigController');
+app.get("/api/facial/config", requireAdmin, facialConfigCtrl.getConfig);
+app.put("/api/facial/config", requireAdmin, facialConfigCtrl.updateConfig);
+app.get("/api/facial/logs", requireAdmin, facialConfigCtrl.getLogs);
+app.get("/api/facial/stats", requireAdmin, facialConfigCtrl.getStats);
+
+
 // ═══════════════════════════════════════════════════════════
 // API ROUTES - PERMISSIONS
 // ═══════════════════════════════════════════════════════════

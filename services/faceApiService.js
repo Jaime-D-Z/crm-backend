@@ -67,9 +67,10 @@ async function getFaceDescriptorFromBase64(base64Image) {
  * Compare two face descriptors and return similarity
  * @param {Array} descriptor1 - First face descriptor (128 numbers)
  * @param {Array} descriptor2 - Second face descriptor (128 numbers)
+ * @param {Number} threshold - Similarity threshold percentage (default: 60)
  * @returns {Object} - { similarity, distance, match }
  */
-function compareFaceDescriptors(descriptor1, descriptor2) {
+function compareFaceDescriptors(descriptor1, descriptor2, threshold = 60) {
     if (!descriptor1 || !descriptor2) {
         throw new Error('Ambos descriptores son requeridos para la comparación');
     }
@@ -88,13 +89,17 @@ function compareFaceDescriptors(descriptor1, descriptor2) {
 
     // Convert distance to similarity percentage
     // Distance typically ranges from 0 (identical) to 1.5 (very different)
-    // We use 0.6 as threshold (face-api.js recommendation)
     const similarity = Math.max(0, Math.min(100, (1 - distance) * 100));
+
+    // Convert threshold percentage to distance
+    // threshold% = (1 - distance) * 100
+    // distance = 1 - (threshold / 100)
+    const thresholdDistance = 1 - (threshold / 100);
 
     return {
         similarity: Math.round(similarity * 100) / 100, // Round to 2 decimals
         distance: Math.round(distance * 1000) / 1000,   // Round to 3 decimals
-        match: distance < 0.6  // Recommended threshold
+        match: distance < thresholdDistance
     };
 }
 

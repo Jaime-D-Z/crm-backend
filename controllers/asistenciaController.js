@@ -208,6 +208,10 @@ exports.marcarConRostro = async (req, res) => {
       return res.status(400).json({ error: 'Foto y tipo son requeridos' });
     }
 
+    // Get facial config from database
+    const [config] = await query('SELECT threshold FROM facial_config ORDER BY id DESC LIMIT 1');
+    const threshold = config ? parseFloat(config.threshold) : 60.0;
+
     // Get user's stored face descriptor
     const [user] = await query(
       'SELECT id, name, face_descriptor, photo_url FROM users WHERE id = $1',
@@ -232,6 +236,18 @@ exports.marcarConRostro = async (req, res) => {
       capturedDescriptor = await faceApiService.getFaceDescriptorFromBase64(photo_base64);
     } catch (err) {
       console.error('Error extracting face descriptor:', err);
+      
+      // Log failed attempt
+      const facialConfigCtrl = require('./facialConfigController');
+      await facialConfigCtrl.logRecognitionAttempt({
+        userId: uid,
+        userName: user.name,
+        similarity: 0,
+        threshold,
+        status: 'failed',
+        ipAddress: req.ip || req.connection.remoteAddress
+      });
+
       return res.status(400).json({ 
         error: 'No se pudo detectar un rostro en la imagen. Asegúrate de que tu cara esté bien iluminada y de frente.' 
       });
@@ -239,21 +255,43 @@ exports.marcarConRostro = async (req, res) => {
 
     // Compare with stored descriptor
     const storedDescriptor = JSON.parse(user.face_descriptor);
-    const comparison = faceApiService.compareFaceDescriptors(storedDescriptor, capturedDescriptor);
+    const comparison = faceApiService.compareFaceDescriptors(storedDescriptor, capturedDescriptor, threshold);
 
     console.log(`🔍 Face comparison for ${user.name}:`, comparison);
 
     // Check if faces match
     if (!comparison.match) {
-      return res.status(403).json({ 
-        error: `Rostro no reconocido (similitud: ${comparison.similarity.toFixed(1)}%, mínimo requerido: 60%)`,
+      // Log failed attempt
+      const facialConfigCtrl = require('./facialConfigController');
+      await facialConfigCtrl.logRecognitionAttempt({
+        userId: uid,
+        userName: user.name,
         similarity: comparison.similarity,
-        threshold: 60,
+        threshold,
+        status: 'failed',
+        ipAddress: req.ip || req.connection.remoteAddress
+      });
+
+      return res.status(403).json({ 
+        error: `Rostro no reconocido (similitud: ${comparison.similarity.toFixed(1)}%, mínimo requerido: ${threshold}%)`,
+        similarity: comparison.similarity,
+        threshold,
         userName: user.name
       });
     }
 
-    // Face matched! Mark attendance
+    // Face matched! Log success
+    const facialConfigCtrl = require('./facialConfigController');
+    await facialConfigCtrl.logRecognitionAttempt({
+      userId: uid,
+      userName: user.name,
+      similarity: comparison.similarity,
+      threshold,
+      status: 'success',
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
+    // Mark attendance
     const now = new Date();
     const fecha = now.toISOString().slice(0, 10);
     const hora = now.toTimeString().slice(0, 8);
@@ -280,6 +318,7 @@ exports.marcarConRostro = async (req, res) => {
         message: `Entrada registrada exitosamente`,
         hora,
         similarity: comparison.similarity,
+        threshold,
         userName: user.name,
         metodo: 'facial'
       });
@@ -306,6 +345,7 @@ exports.marcarConRostro = async (req, res) => {
         message: `Salida registrada exitosamente`,
         hora,
         similarity: comparison.similarity,
+        threshold,
         userName: user.name,
         metodo: 'facial'
       });
