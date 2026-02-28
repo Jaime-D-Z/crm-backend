@@ -33,7 +33,15 @@ async function initFaceApi() {
 }
 
 async function getFaceDescriptorFromBase64(base64Image) {
-    await initFaceApi();
+    // Check if models are loaded
+    if (!modelsLoaded) {
+        await initFaceApi();
+    }
+
+    // If still not loaded, throw error
+    if (!modelsLoaded) {
+        throw new Error('Los modelos de reconocimiento facial no están disponibles. Por favor, ejecuta: node scripts/download-face-models.js');
+    }
 
     // Extraer datos base64
     const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, "");
@@ -55,7 +63,12 @@ async function getFaceDescriptorFromBase64(base64Image) {
     return Array.from(detection.descriptor);
 }
 
+function areModelsLoaded() {
+    return modelsLoaded;
+}
+
 module.exports = {
     initFaceApi,
-    getFaceDescriptorFromBase64
+    getFaceDescriptorFromBase64,
+    areModelsLoaded
 };

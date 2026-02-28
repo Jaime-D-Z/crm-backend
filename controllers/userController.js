@@ -4,7 +4,6 @@ const AuditLog = require('../models/AuditLog');
 const { sendWelcomeEmail } = require('../core/mailer');
 const { body, validationResult } = require('express-validator');
 const { query } = require('../core/db');
-const faceApiService = require('../services/faceApiService');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -102,16 +101,12 @@ async function createUser(req, res) {
             return res.status(400).json({ error: 'El correo electrónico ya está registrado' });
         }
 
-        // Process face photo if provided
-        let faceDescriptor = null;
+        // Process face photo if provided (simple image save, no face recognition yet)
         let savedPhotoUrl = null;
 
         if (photo_url_base64) {
             try {
-                // Get face descriptor
-                faceDescriptor = await faceApiService.getFaceDescriptorFromBase64(photo_url_base64);
-
-                // Save image
+                // Save image directly without face recognition
                 const base64Data = photo_url_base64.replace(/^data:image\/\w+;base64,/, "");
                 const buffer = Buffer.from(base64Data, 'base64');
                 const filename = `user_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.jpg`;
@@ -123,9 +118,10 @@ async function createUser(req, res) {
 
                 fs.writeFileSync(path.join(uploadPath, filename), buffer);
                 savedPhotoUrl = `/uploads/users/${filename}`;
-            } catch (errorFace) {
-                console.error("Error procesando rostro:", errorFace);
-                return res.status(400).json({ error: 'Error al procesar la imagen facial. Asegúrate de que la imagen contenga un rostro visible.' });
+                console.log(`✅ Foto guardada: ${savedPhotoUrl}`);
+            } catch (errorPhoto) {
+                console.error("Error guardando foto:", errorPhoto);
+                return res.status(400).json({ error: 'Error al guardar la imagen. Intenta con otra foto.' });
             }
         }
 
@@ -151,10 +147,10 @@ async function createUser(req, res) {
             tempPassword = user.tempPassword;
         }
 
-        // Update additional fields
+        // Update additional fields (without face_descriptor for now)
         await query(
-            `UPDATE users SET phone=$1, department=$2, position=$3, is_active=$4, photo_url=$5, face_descriptor=$6 WHERE id=$7`,
-            [phone || null, department || null, position || null, status === 'active', savedPhotoUrl, faceDescriptor, user.id]
+            `UPDATE users SET phone=$1, department=$2, position=$3, is_active=$4, photo_url=$5 WHERE id=$6`,
+            [phone || null, department || null, position || null, status === 'active', savedPhotoUrl, user.id]
         );
 
         // Send welcome email if temp password was generated
@@ -205,15 +201,11 @@ async function updateUser(req, res) {
             }
         }
 
-        // Process face photo if provided
-        let faceDescriptor = user.face_descriptor;
+        // Process face photo if provided (simple image save)
         let savedPhotoUrl = user.photo_url;
 
         if (photo_url_base64) {
             try {
-                // Get face descriptor
-                faceDescriptor = await faceApiService.getFaceDescriptorFromBase64(photo_url_base64);
-
                 // Delete old photo if exists
                 if (user.photo_url) {
                     const oldPath = path.join(__dirname, '..', 'public', user.photo_url);
@@ -234,9 +226,10 @@ async function updateUser(req, res) {
 
                 fs.writeFileSync(path.join(uploadPath, filename), buffer);
                 savedPhotoUrl = `/uploads/users/${filename}`;
-            } catch (errorFace) {
-                console.error("Error procesando rostro:", errorFace);
-                return res.status(400).json({ error: 'Error al procesar la imagen facial' });
+                console.log(`✅ Foto actualizada: ${savedPhotoUrl}`);
+            } catch (errorPhoto) {
+                console.error("Error guardando foto:", errorPhoto);
+                return res.status(400).json({ error: 'Error al guardar la imagen' });
             }
         }
 
@@ -291,11 +284,6 @@ async function updateUser(req, res) {
         if (savedPhotoUrl !== user.photo_url) {
             updates.push(`photo_url = $${paramIndex++}`);
             params.push(savedPhotoUrl);
-        }
-
-        if (faceDescriptor !== user.face_descriptor) {
-            updates.push(`face_descriptor = $${paramIndex++}`);
-            params.push(faceDescriptor);
         }
 
         if (updates.length > 0) {
