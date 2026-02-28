@@ -31,21 +31,22 @@ function maxSimilarity(newName, newEmail, existingList) {
         const prefix2 = emp.email ? emp.email.split('@')[0].toLowerCase() : '';
         const emailSim = similarity(prefix1, prefix2);
 
-        // Calcular score combinado: ambos deben ser altos para ser considerado duplicado
-        // Si solo uno es alto, reducir el score significativamente
+        // NUEVA LÓGICA: Solo considerar duplicado si AMBOS son muy similares
+        // Esto evita falsos positivos como "jaimet7936824" vs "jaime7936824"
         let score;
-        if (nameSim >= 80 && emailSim >= 80) {
-            // Ambos muy similares: promedio alto
+        
+        if (nameSim >= 85 && emailSim >= 85) {
+            // Ambos muy similares: definitivamente duplicado
             score = (nameSim + emailSim) / 2;
-        } else if (nameSim >= 90 || emailSim >= 90) {
-            // Solo uno es casi idéntico: usar ese valor pero reducido
-            score = Math.max(nameSim, emailSim) * 0.80;
-        } else if (nameSim >= 70 && emailSim >= 70) {
-            // Ambos moderadamente similares: promedio
-            score = (nameSim + emailSim) / 2;
-        } else {
-            // Uno o ambos son diferentes: promedio ponderado favoreciendo el email
+        } else if (nameSim >= 95 && emailSim >= 70) {
+            // Nombre casi idéntico + email similar: probable duplicado
+            score = (nameSim * 0.7 + emailSim * 0.3);
+        } else if (nameSim >= 70 && emailSim >= 95) {
+            // Email casi idéntico + nombre similar: probable duplicado
             score = (nameSim * 0.3 + emailSim * 0.7);
+        } else {
+            // Uno o ambos son diferentes: NO es duplicado
+            score = 0;
         }
 
         if (score > best.score) best = { score, emp };
