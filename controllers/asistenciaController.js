@@ -246,8 +246,10 @@ exports.marcarConRostro = async (req, res) => {
     // Check if faces match
     if (!comparison.match) {
       return res.status(403).json({ 
-        error: `Rostro no reconocido. Similitud: ${comparison.similarity}%. Por favor, intenta de nuevo o usa el método manual.`,
-        similarity: comparison.similarity
+        error: `Rostro no reconocido (similitud: ${comparison.similarity.toFixed(1)}%, mínimo requerido: 60%)`,
+        similarity: comparison.similarity,
+        threshold: 60,
+        userName: user.name
       });
     }
 
@@ -275,10 +277,11 @@ exports.marcarConRostro = async (req, res) => {
 
       res.json({ 
         ok: true, 
-        message: `✅ Entrada registrada con reconocimiento facial`,
+        message: `Entrada registrada exitosamente`,
         hora,
         similarity: comparison.similarity,
-        userName: user.name
+        userName: user.name,
+        metodo: 'facial'
       });
     } else {
       // Mark salida
@@ -300,10 +303,11 @@ exports.marcarConRostro = async (req, res) => {
 
       res.json({ 
         ok: true, 
-        message: `✅ Salida registrada con reconocimiento facial`,
+        message: `Salida registrada exitosamente`,
         hora,
         similarity: comparison.similarity,
-        userName: user.name
+        userName: user.name,
+        metodo: 'facial'
       });
     }
   } catch (e) {
