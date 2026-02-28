@@ -133,10 +133,23 @@ async function createEmployee(req, res) {
     } = req.body;
 
     try {
-        // ── Check if email exists in users table first ───────
-        const emailTaken = await User.emailExists(email);
-        if (emailTaken) {
-            return res.status(400).json({ error: 'El correo electrónico ya está registrado por otro usuario o empleado.' });
+        // ── Check if email exists in users OR employees table ───────
+        const emailTakenInUsers = await User.emailExists(email);
+        if (emailTakenInUsers) {
+            return res.status(400).json({ error: 'El correo electrónico ya está registrado en usuarios.' });
+        }
+
+        // Check if email exists in employees table
+        const { query } = require('../core/db');
+        const [existingEmployee] = await query(
+            'SELECT id, name FROM employees WHERE LOWER(email) = LOWER($1)',
+            [email]
+        );
+        
+        if (existingEmployee) {
+            return res.status(400).json({ 
+                error: `El correo electrónico ya está registrado por el empleado: ${existingEmployee.name}` 
+            });
         }
 
         // ── Duplicate detection (Levenshtein) ─────────────────
