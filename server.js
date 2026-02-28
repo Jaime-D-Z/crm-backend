@@ -11,6 +11,8 @@ const cookieParser = require("cookie-parser");
 const path = require("path");
 const multer = require("multer");
 const fs = require("fs");
+const { Server } = require("socket.io");
+const http = require("http");
 
 // Configuration and utilities
 const config = require("./config");
@@ -41,6 +43,7 @@ const {
 
 // Controllers
 const authCtrl = require("./controllers/authController");
+const faceAuthCtrl = require("./controllers/faceAuthController");
 const adminCtrl = require("./controllers/adminController");
 const analyticsCtrl = require("./controllers/analyticsController");
 const employeeCtrl = require("./controllers/employeeController");
@@ -55,8 +58,30 @@ const proyCtrl = require("./controllers/proyectosController");
 const ventasCtrl = require("./controllers/ventasController");
 const ausenciasCtrl = require("./controllers/ausenciasController");
 const reportCtrl = require("./controllers/reportController");
+const { initFaceApi } = require("./services/faceApiService");
 
 const app = express();
+const server = http.createServer(app);
+
+// ═══════════════════════════════════════════════════════════
+// SOCKET.IO CONFIGURATION
+// ═══════════════════════════════════════════════════════════
+const io = new Server(server, {
+  cors: {
+    origin: true,
+    credentials: true
+  }
+});
+
+// Guardar io en el app para poder usarlo en los controladores
+app.set("io", io);
+
+io.on("connection", (socket) => {
+  logger.info(`Cliente Socket.io conectado: ${socket.id}`);
+  socket.on("disconnect", () => {
+    logger.info(`Cliente Socket.io desconectado: ${socket.id}`);
+  });
+});
 
 // ═══════════════════════════════════════════════════════════
 // TRUST PROXY (Required for HTTPS behind reverse proxy)
@@ -174,6 +199,7 @@ app.use("/api", apiLimiter);
 // API ROUTES - AUTHENTICATION
 // ═══════════════════════════════════════════════════════════
 app.post("/api/auth/login", loginLimiter, authCtrl.login);
+app.post("/api/auth/verify-face", loginLimiter, faceAuthCtrl.verifyFace);
 app.post("/api/auth/logout", authCtrl.logout);
 app.get("/api/auth/me", requireAuth, authCtrl.me);
 app.get("/api/users", requireAdmin, authCtrl.listUsers);
@@ -576,9 +602,11 @@ app.use(errorHandler);
 // ═══════════════════════════════════════════════════════════
 const gracefulShutdown = async (signal) => {
   logger.info(`${signal} received. Starting graceful shutdown...`);
-  
+
   server.close(async () => {
     logger.info("HTTP server closed");
+    // Close socket.io
+    io.close();
     await closePool();
     logger.info("Graceful shutdown completed");
     process.exit(0);
@@ -598,7 +626,7 @@ process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 // START SERVER
 // ═══════════════════════════════════════════════════════════
 const PORT = config.port;
-const server = app.listen(PORT, async () => {
+server.listen(PORT, async () => {
   logger.info(`
 ╔═══════════════════════════════════════════════════════════╗
 ║  ${config.appName}                                        
@@ -609,8 +637,15 @@ const server = app.listen(PORT, async () => {
   `);
 
   await verifyConnection();
+  // Inicializar Modelos IA
+  try {
+    await initFaceApi();
+  } catch (e) {
+    logger.error("Error al inicializar FaceAPI:", e);
+  }
+
   logger.info(`Uploads directory: ${UPLOADS_DIR}`);
-  logger.info("Server ready to accept connections");
+  logger.info("Server ready to accept connections (HTTP + Socket.io)");
 });
 
 // Handle server errors

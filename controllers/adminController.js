@@ -7,7 +7,9 @@ const { body, validationResult } = require('express-validator');
 const levenshtein = require('fast-levenshtein');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { query } = require('../core/db');
+const faceApiService = require('../services/faceApiService');
 
 // ── Levenshtein similarity (%) ────────────────────────────
 function similarity(a, b) {
@@ -126,7 +128,7 @@ async function createEmployee(req, res) {
     const {
         name, email, phone, employeeType, department, position,
         hireDate, status, bio, password, roleId, crearAcceso,
-        duplicateConfirmed,
+        duplicateConfirmed, photo_url_base64,
     } = req.body;
 
     try {
@@ -174,6 +176,31 @@ async function createEmployee(req, res) {
             });
         }
 
+        // ── Face Recognition (Optional during creation) ───────
+        let faceDescriptor = null;
+        let savedPhotoUrl = null;
+
+        if (photo_url_base64) {
+            try {
+                // 1. Obtener el descriptor facial
+                faceDescriptor = await faceApiService.getFaceDescriptorFromBase64(photo_url_base64);
+
+                // 2. Guardar la imagen físicamente 
+                const base64Data = photo_url_base64.replace(/^data:image\/\w+;base64,/, "");
+                const buffer = Buffer.from(base64Data, 'base64');
+                const filename = `rostro_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.jpg`;
+                const uploadPath = path.join(__dirname, '..', 'public', 'uploads', 'empleados');
+
+                if (!fs.existsSync(uploadPath)) fs.mkdirSync(uploadPath, { recursive: true });
+
+                fs.writeFileSync(path.join(uploadPath, filename), buffer);
+                savedPhotoUrl = `/uploads/empleados/${filename}`;
+            } catch (errorFace) {
+                console.error("Error procesando rostro:", errorFace);
+                // No bloqueamos la creación, pero podríamos avisar
+            }
+        }
+
         // ── Create employee record ────────────────────────────
         const employee = await Employee.create({
             name: name.trim(),
@@ -185,6 +212,8 @@ async function createEmployee(req, res) {
             hireDate: hireDate || null,
             status: status || 'active',
             bio: bio || null,
+            photoUrl: savedPhotoUrl,
+            faceDescriptor,
             createdBy: req.session.userId,
         });
 

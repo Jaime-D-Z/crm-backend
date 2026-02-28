@@ -14,8 +14,10 @@
     "lint": "echo \"No linter configured\" && exit 0"
   },
   "dependencies": {
+    "@vladmandic/face-api": "^1.7.15",
     "axios": "^1.13.5",
     "bcrypt": "^5.1.1",
+    "canvas": "^3.2.1",
     "connect-pg-simple": "^9.0.1",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.6",
@@ -24,6 +26,7 @@
     "express-rate-limit": "^8.2.1",
     "express-session": "^1.18.0",
     "express-validator": "^7.3.1",
+    "face-api.js": "^0.22.2",
     "fast-levenshtein": "^3.0.0",
     "helmet": "^8.1.0",
     "json2csv": "^6.0.0-alpha.2",

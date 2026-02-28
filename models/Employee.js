@@ -2,14 +2,14 @@ const { query } = require('../core/db');
 const { v4: uuidv4 } = require('uuid');
 
 class EmployeeModel {
-    async create({ name, email, phone, employeeType, department, position, hireDate, status, photoUrl, bio, createdBy }) {
+    async create({ name, email, phone, employeeType, department, position, hireDate, status, photoUrl, bio, faceDescriptor, createdBy }) {
         const id = uuidv4();
         await query(
             `INSERT INTO employees
-         (id, name, email, phone, employee_type, department, position, hire_date, status, photo_url, bio, created_by, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)`,
+         (id, name, email, phone, employee_type, department, position, hire_date, status, photo_url, bio, face_descriptor, created_by, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)`,
             [id, name, email, phone || null, employeeType, department || null, position || null,
-                hireDate || null, status || 'active', photoUrl || null, bio || null, createdBy]
+                hireDate || null, status || 'active', photoUrl || null, bio || null, faceDescriptor ? JSON.stringify(faceDescriptor) : null, createdBy]
         );
         return this.findById(id);
     }
