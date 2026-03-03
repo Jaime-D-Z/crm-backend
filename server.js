@@ -61,6 +61,7 @@ const ausenciasCtrl = require("./controllers/ausenciasController");
 const reportCtrl = require("./controllers/reportController");
 const productosCtrl = require("./controllers/productosController");
 const eventosProductosCtrl = require("./controllers/eventosProductosController");
+const pedidosCtrl = require("./controllers/pedidosController");
 const { initFaceApi } = require("./services/faceApiService");
 
 const app = express();
@@ -629,6 +630,10 @@ app.get("/api/productos/publicos/:id", productosCtrl.getPublic);
 // ── Tracking de eventos (sin autenticación) ─────────────────
 app.post("/api/eventos/track", eventosProductosCtrl.track);
 
+// ── Pedidos / Checkout (sin autenticación) ──────────────────
+app.post("/api/pedidos", pedidosCtrl.create);
+app.get("/api/pedidos/numero/:numero", pedidosCtrl.getByNumero);
+
 // ── Endpoints Admin (con autenticación) ─────────────────────
 app.get(
   "/api/productos/stats",
@@ -703,6 +708,26 @@ app.get(
   requireAdmin,
   checkPermission("Ventas", "ver"),
   eventosProductosCtrl.getUsuariosUnicos
+);
+
+// ── Pedidos Admin ───────────────────────────────────────────
+app.get(
+  "/api/pedidos/stats",
+  requireAdmin,
+  checkPermission("Ventas", "ver"),
+  pedidosCtrl.getStats
+);
+app.get(
+  "/api/pedidos",
+  requireAdmin,
+  checkPermission("Ventas", "ver"),
+  pedidosCtrl.list
+);
+app.put(
+  "/api/pedidos/:id/estado",
+  requireAdmin,
+  checkPermission("Ventas", "editar"),
+  pedidosCtrl.updateEstado
 );
 
 // ═══════════════════════════════════════════════════════════
