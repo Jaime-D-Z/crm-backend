@@ -247,6 +247,8 @@ exports.enviarEmailCupon = async (req, res) => {
       return res.status(400).json({ error: "IP requerida" });
     }
 
+    console.log(`[Marketing] Buscando cupón para IP: ${ip}`);
+
     // Obtener el producto más visto por esta IP
     const productoMasVisto = await query(
       `SELECT 
@@ -270,6 +272,7 @@ exports.enviarEmailCupon = async (req, res) => {
     }
 
     const producto = productoMasVisto[0];
+    console.log(`[Marketing] Producto más visto: ${producto.nombre} (${producto.vistas} vistas)`);
 
     // Crear cupón del 10%
     const codigo = generarCodigoCupon();
@@ -298,13 +301,49 @@ exports.enviarEmailCupon = async (req, res) => {
       ]
     );
 
-    // Obtener email del suscriptor si existe
-    const suscriptor = await query(
+    console.log(`[Marketing] Cupón creado: ${codigo}`);
+
+    // Buscar suscriptor por IP (con variaciones de formato)
+    // Primero intentar búsqueda exacta
+    let suscriptor = await query(
       `SELECT email, nombre FROM suscriptores WHERE ip = $1 AND activo = true LIMIT 1`,
       [ip]
     );
 
+    // Si no encuentra, intentar con LIKE para manejar variaciones de IPv6
     if (suscriptor.length === 0) {
+      console.log(`[Marketing] No se encontró suscriptor con IP exacta: ${ip}`);
+      console.log(`[Marketing] Intentando búsqueda flexible...`);
+      
+      // Limpiar IP de prefijos IPv6
+      const cleanIp = ip.replace('::ffff:', '');
+      
+      suscriptor = await query(
+        `SELECT email, nombre, ip as ip_registrada 
+         FROM suscriptores 
+         WHERE (ip = $1 OR ip LIKE $2 OR ip LIKE $3) 
+           AND activo = true 
+         ORDER BY created_at DESC 
+         LIMIT 1`,
+        [cleanIp, `%${cleanIp}%`, `%${ip}%`]
+      );
+      
+      if (suscriptor.length > 0) {
+        console.log(`[Marketing] Suscriptor encontrado con búsqueda flexible: ${suscriptor[0].email} (IP registrada: ${suscriptor[0].ip_registrada})`);
+      }
+    } else {
+      console.log(`[Marketing] Suscriptor encontrado: ${suscriptor[0].email}`);
+    }
+
+    if (suscriptor.length === 0) {
+      console.log(`[Marketing] No hay email registrado para esta IP`);
+      
+      // Mostrar IPs disponibles en suscriptores para debug
+      const allSuscriptores = await query(
+        `SELECT ip, email FROM suscriptores WHERE activo = true ORDER BY created_at DESC LIMIT 5`
+      );
+      console.log(`[Marketing] IPs registradas en suscriptores:`, allSuscriptores.map(s => `${s.ip} (${s.email})`));
+      
       // No hay email, retornar cupón para mostrar en modal
       return res.json({
         ok: true,
@@ -325,6 +364,8 @@ exports.enviarEmailCupon = async (req, res) => {
     const { email, nombre } = suscriptor[0];
     const precioConDescuento = (producto.precio * 0.9).toFixed(2);
     const linkProducto = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/ventas?cupon=${codigo}&producto=${producto.id}`;
+
+    console.log(`[Marketing] Preparando email para: ${email}`);
 
     // Enviar email
     const mailOptions = {
