@@ -157,19 +157,19 @@ exports.validarCupon = async (req, res) => {
 
     const cupon = cupones[0];
 
-    // Verificar si es para un email específico
-    if (cupon.email_destinatario && cupon.email_destinatario !== email) {
-      return res.status(403).json({ 
-        error: "Este cupón no es válido para tu cuenta" 
-      });
-    }
+    // Verificar si es para un email específico (comentado para permitir uso desde cualquier cuenta)
+    // if (cupon.email_destinatario && cupon.email_destinatario !== email) {
+    //   return res.status(403).json({ 
+    //     error: "Este cupón no es válido para tu cuenta" 
+    //   });
+    // }
 
-    // Verificar si es para una IP específica
-    if (cupon.ip_destinatario && cupon.ip_destinatario !== ip) {
-      return res.status(403).json({ 
-        error: "Este cupón no es válido para tu sesión" 
-      });
-    }
+    // Verificar si es para una IP específica (comentado para permitir uso desde cualquier dispositivo)
+    // if (cupon.ip_destinatario && cupon.ip_destinatario !== ip) {
+    //   return res.status(403).json({ 
+    //     error: "Este cupón no es válido para tu sesión" 
+    //   });
+    // }
 
     // Verificar si es para un producto específico
     if (cupon.producto_id && cupon.producto_id !== producto_id) {
