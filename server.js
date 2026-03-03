@@ -710,6 +710,12 @@ app.get(
   eventosProductosCtrl.getUsuariosUnicos
 );
 app.get(
+  "/api/eventos/clientes-potenciales",
+  requireAdmin,
+  checkPermission("Ventas", "ver"),
+  eventosProductosCtrl.getClientesPotenciales
+);
+app.get(
   "/api/eventos/checkout-funnel",
   requireAdmin,
   checkPermission("Ventas", "ver"),

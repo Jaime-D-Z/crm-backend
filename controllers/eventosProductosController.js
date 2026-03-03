@@ -270,6 +270,82 @@ exports.getUsuariosUnicos = async (req, res) => {
 };
 
 
+// ── Clientes Potenciales (Lead Scoring) ───────────────────────
+exports.getClientesPotenciales = async (req, res) => {
+  try {
+    const rows = await query(`
+      SELECT 
+        session_id,
+        ip,
+        device_type,
+        MIN(created_at) as primera_visita,
+        MAX(created_at) as ultima_actividad,
+        COUNT(*) as total_eventos,
+        COUNT(DISTINCT producto_id) as productos_vistos,
+        COUNT(CASE WHEN tipo_evento = 'producto_visto' THEN 1 END) as vistas_producto,
+        COUNT(CASE WHEN tipo_evento = 'producto_detalle' THEN 1 END) as vistas_detalle,
+        COUNT(CASE WHEN tipo_evento = 'contacto_click' THEN 1 END) as contactos,
+        COUNT(CASE WHEN tipo_evento = 'producto_agregado_carrito' THEN 1 END) as agregados_carrito,
+        -- Lead Score: Puntuación de 0-100
+        (
+          (COUNT(DISTINCT producto_id) * 10) +  -- 10 puntos por producto visto
+          (COUNT(CASE WHEN tipo_evento = 'producto_detalle' THEN 1 END) * 15) +  -- 15 puntos por ver detalles
+          (COUNT(CASE WHEN tipo_evento = 'producto_agregado_carrito' THEN 1 END) * 25) +  -- 25 puntos por agregar al carrito
+          (CASE WHEN COUNT(*) >= 10 THEN 20 ELSE COUNT(*) * 2 END)  -- Bonus por actividad
+        ) as lead_score
+      FROM eventos_productos
+      WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY session_id, ip, device_type
+      HAVING 
+        COUNT(CASE WHEN tipo_evento = 'contacto_click' THEN 1 END) = 0  -- Sin contacto
+        AND (
+          COUNT(DISTINCT producto_id) >= 2  -- Vio 2+ productos
+          OR COUNT(*) >= 5  -- O tiene 5+ eventos
+          OR COUNT(CASE WHEN tipo_evento = 'producto_detalle' THEN 1 END) >= 1  -- O vio detalles
+        )
+      ORDER BY lead_score DESC, ultima_actividad DESC
+      LIMIT 100
+    `);
+
+    // Clasificar por nivel de interés
+    const clasificados = rows.map(u => {
+      const score = parseInt(u.lead_score) || 0;
+      let nivel_interes = 'Bajo';
+      let prioridad = 3;
+      
+      if (score >= 80 || u.productos_vistos >= 5) {
+        nivel_interes = 'Alto';
+        prioridad = 1;
+      } else if (score >= 40 || u.productos_vistos >= 3) {
+        nivel_interes = 'Medio';
+        prioridad = 2;
+      }
+
+      return {
+        ...u,
+        lead_score: score,
+        nivel_interes,
+        prioridad,
+        dias_inactivo: Math.floor((Date.now() - new Date(u.ultima_actividad)) / (1000 * 60 * 60 * 24))
+      };
+    });
+
+    res.json({ 
+      ok: true, 
+      clientes_potenciales: clasificados,
+      total: clasificados.length,
+      por_nivel: {
+        alto: clasificados.filter(c => c.nivel_interes === 'Alto').length,
+        medio: clasificados.filter(c => c.nivel_interes === 'Medio').length,
+        bajo: clasificados.filter(c => c.nivel_interes === 'Bajo').length
+      }
+    });
+  } catch (e) {
+    console.error("Clientes potenciales error:", e);
+    res.status(500).json({ error: "Error del servidor" });
+  }
+};
+
 // ── Funnel de Checkout ────────────────────────────────────────
 exports.getCheckoutFunnel = async (req, res) => {
   try {
