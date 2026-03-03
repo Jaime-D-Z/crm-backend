@@ -4,7 +4,7 @@ const { v4: uuid } = require("uuid");
 const nodemailer = require("nodemailer");
 
 // Configurar transporter de email (ajustar según tu servicio)
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: process.env.SMTP_PORT || 587,
   secure: false,
