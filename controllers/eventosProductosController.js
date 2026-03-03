@@ -84,6 +84,7 @@ exports.getStats = async (req, res) => {
       `SELECT 
         COUNT(*) as total_eventos,
         COUNT(DISTINCT session_id) as sesiones_unicas,
+        COUNT(DISTINCT ip) as ips_unicas,
         COUNT(DISTINCT producto_id) as productos_vistos,
         COUNT(CASE WHEN tipo_evento = 'catalogo_visto' THEN 1 END) as vistas_catalogo,
         COUNT(CASE WHEN tipo_evento = 'producto_visto' THEN 1 END) as vistas_producto,
@@ -109,6 +110,7 @@ exports.getStats = async (req, res) => {
     const formattedStats = {
       total_eventos: parseInt(s.total_eventos) || 0,
       sesiones_unicas: parseInt(s.sesiones_unicas) || 0,
+      ips_unicas: parseInt(s.ips_unicas) || 0,
       productos_vistos: parseInt(s.productos_vistos) || 0,
       vistas_catalogo: parseInt(s.vistas_catalogo) || 0,
       vistas_producto: vistasProducto,
@@ -202,7 +204,8 @@ exports.getRecientes = async (req, res) => {
     const rows = await query(
       `SELECT 
         e.id, e.tipo_evento, e.session_id, e.device_type, 
-        e.created_at, p.nombre as producto_nombre, p.precio
+        e.ip, e.user_agent, e.created_at, 
+        p.nombre as producto_nombre, p.precio
        FROM eventos_productos e
        LEFT JOIN productos p ON p.id = e.producto_id
        ORDER BY e.created_at DESC
@@ -235,6 +238,33 @@ exports.getPorTipo = async (req, res) => {
     res.json({ ok: true, eventos: rows });
   } catch (e) {
     console.error("Eventos por tipo error:", e);
+    res.status(500).json({ error: "Error del servidor" });
+  }
+};
+
+// ── Usuarios únicos con IPs ───────────────────────────────────
+exports.getUsuariosUnicos = async (req, res) => {
+  try {
+    const rows = await query(`
+      SELECT 
+        session_id,
+        ip,
+        device_type,
+        MIN(created_at) as primera_visita,
+        MAX(created_at) as ultima_actividad,
+        COUNT(*) as total_eventos,
+        COUNT(DISTINCT producto_id) as productos_vistos,
+        COUNT(CASE WHEN tipo_evento = 'contacto_click' THEN 1 END) as contactos
+      FROM eventos_productos
+      WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY session_id, ip, device_type
+      ORDER BY ultima_actividad DESC
+      LIMIT 50
+    `);
+
+    res.json({ ok: true, usuarios: rows });
+  } catch (e) {
+    console.error("Usuarios unicos error:", e);
     res.status(500).json({ error: "Error del servidor" });
   }
 };

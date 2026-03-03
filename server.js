@@ -698,6 +698,12 @@ app.get(
   checkPermission("Ventas", "ver"),
   eventosProductosCtrl.getPorTipo
 );
+app.get(
+  "/api/eventos/usuarios-unicos",
+  requireAdmin,
+  checkPermission("Ventas", "ver"),
+  eventosProductosCtrl.getUsuariosUnicos
+);
 
 // ═══════════════════════════════════════════════════════════
 // ERROR HANDLERS (Must be last)
