@@ -288,33 +288,36 @@ exports.getClientesPotenciales = async (req, res) => {
   try {
     const rows = await query(`
       SELECT 
-        session_id,
-        ip,
-        device_type,
-        MIN(created_at) as primera_visita,
-        MAX(created_at) as ultima_actividad,
+        e.session_id,
+        e.ip,
+        e.device_type,
+        s.email,
+        s.nombre as suscriptor_nombre,
+        MIN(e.created_at) as primera_visita,
+        MAX(e.created_at) as ultima_actividad,
         COUNT(*) as total_eventos,
-        COUNT(DISTINCT producto_id) as productos_vistos,
-        COUNT(CASE WHEN tipo_evento = 'producto_visto' THEN 1 END) as vistas_producto,
-        COUNT(CASE WHEN tipo_evento = 'producto_detalle' THEN 1 END) as vistas_detalle,
-        COUNT(CASE WHEN tipo_evento = 'contacto_click' THEN 1 END) as contactos,
-        COUNT(CASE WHEN tipo_evento = 'producto_agregado_carrito' THEN 1 END) as agregados_carrito,
+        COUNT(DISTINCT e.producto_id) as productos_vistos,
+        COUNT(CASE WHEN e.tipo_evento = 'producto_visto' THEN 1 END) as vistas_producto,
+        COUNT(CASE WHEN e.tipo_evento = 'producto_detalle' THEN 1 END) as vistas_detalle,
+        COUNT(CASE WHEN e.tipo_evento = 'contacto_click' THEN 1 END) as contactos,
+        COUNT(CASE WHEN e.tipo_evento = 'producto_agregado_carrito' THEN 1 END) as agregados_carrito,
         -- Lead Score: Puntuación de 0-100
         (
-          (COUNT(DISTINCT producto_id) * 10) +  -- 10 puntos por producto visto
-          (COUNT(CASE WHEN tipo_evento = 'producto_detalle' THEN 1 END) * 15) +  -- 15 puntos por ver detalles
-          (COUNT(CASE WHEN tipo_evento = 'producto_agregado_carrito' THEN 1 END) * 25) +  -- 25 puntos por agregar al carrito
+          (COUNT(DISTINCT e.producto_id) * 10) +  -- 10 puntos por producto visto
+          (COUNT(CASE WHEN e.tipo_evento = 'producto_detalle' THEN 1 END) * 15) +  -- 15 puntos por ver detalles
+          (COUNT(CASE WHEN e.tipo_evento = 'producto_agregado_carrito' THEN 1 END) * 25) +  -- 25 puntos por agregar al carrito
           (CASE WHEN COUNT(*) >= 10 THEN 20 ELSE COUNT(*) * 2 END)  -- Bonus por actividad
         ) as lead_score
-      FROM eventos_productos
-      WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
-      GROUP BY session_id, ip, device_type
+      FROM eventos_productos e
+      LEFT JOIN suscriptores s ON (e.ip = s.ip OR e.ip LIKE '%' || s.ip || '%' OR s.ip LIKE '%' || e.ip || '%') AND s.activo = true
+      WHERE e.created_at >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY e.session_id, e.ip, e.device_type, s.email, s.nombre
       HAVING 
-        COUNT(CASE WHEN tipo_evento = 'contacto_click' THEN 1 END) = 0  -- Sin contacto
+        COUNT(CASE WHEN e.tipo_evento = 'contacto_click' THEN 1 END) = 0  -- Sin contacto
         AND (
-          COUNT(DISTINCT producto_id) >= 2  -- Vio 2+ productos
+          COUNT(DISTINCT e.producto_id) >= 2  -- Vio 2+ productos
           OR COUNT(*) >= 5  -- O tiene 5+ eventos
-          OR COUNT(CASE WHEN tipo_evento = 'producto_detalle' THEN 1 END) >= 1  -- O vio detalles
+          OR COUNT(CASE WHEN e.tipo_evento = 'producto_detalle' THEN 1 END) >= 1  -- O vio detalles
         )
       ORDER BY lead_score DESC, ultima_actividad DESC
       LIMIT 100
