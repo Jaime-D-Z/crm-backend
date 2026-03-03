@@ -6,17 +6,20 @@ const { v4: uuid } = require("uuid");
 // ENDPOINTS PÚBLICOS (Sin autenticación)
 // ══════════════════════════════════════════════════════════════
 
-// ── Lista productos activos (para landing page pública) ───────
+// ── Lista productos activos con recomendaciones personalizadas ───────
 exports.listPublic = async (req, res) => {
   try {
     const { categoria, destacado, limit = 50 } = req.query;
+    
+    // Obtener IP del usuario para recomendaciones personalizadas
+    const userIp = req.ip || req.connection.remoteAddress || "";
     
     let where = ["activo = true"];
     const params = [];
 
     if (categoria) {
       params.push(categoria);
-      where.push(`categoria = $${params.length}`);
+      where.push(`categoria = ${params.length}`);
     }
 
     if (destacado === "true") {
@@ -25,17 +28,44 @@ exports.listPublic = async (req, res) => {
 
     params.push(parseInt(limit) || 50);
 
+    // Obtener productos con score de recomendación basado en el comportamiento del usuario
     const rows = await query(
-      `SELECT id, nombre, descripcion, precio, imagen_url, categoria, 
-              destacado, orden, created_at
-       FROM productos
-       WHERE ${where.join(" AND ")}
-       ORDER BY orden ASC, created_at DESC
-       LIMIT $${params.length}`,
-      params
+      `WITH user_interactions AS (
+        SELECT 
+          producto_id,
+          COUNT(*) as vistas,
+          COUNT(CASE WHEN tipo_evento = 'producto_detalle' THEN 1 END) as detalles,
+          MAX(created_at) as ultima_vista
+        FROM eventos_productos
+        WHERE ip = $${params.length + 1}
+          AND producto_id IS NOT NULL
+          AND created_at >= CURRENT_DATE - INTERVAL '30 days'
+        GROUP BY producto_id
+      )
+      SELECT 
+        p.id, p.nombre, p.descripcion, p.precio, p.imagen_url, p.categoria, 
+        p.destacado, p.orden, p.created_at,
+        COALESCE(ui.vistas, 0) as user_vistas,
+        COALESCE(ui.detalles, 0) as user_detalles,
+        ui.ultima_vista,
+        COALESCE((ui.vistas * 10 + ui.detalles * 20), 0) as recommendation_score
+      FROM productos p
+      LEFT JOIN user_interactions ui ON ui.producto_id = p.id
+      WHERE ${where.join(" AND ")}
+      ORDER BY 
+        recommendation_score DESC,
+        p.destacado DESC,
+        p.orden ASC,
+        p.created_at DESC
+      LIMIT ${params.length}`,
+      [...params, userIp]
     );
 
-    res.json({ ok: true, productos: rows });
+    res.json({ 
+      ok: true, 
+      productos: rows,
+      personalized: rows.some(p => p.recommendation_score > 0)
+    });
   } catch (e) {
     console.error("Productos public error:", e);
     res.status(500).json({ error: "Error del servidor" });
@@ -79,17 +109,17 @@ exports.list = async (req, res) => {
 
     if (categoria) {
       params.push(categoria);
-      where.push(`p.categoria = $${params.length}`);
+      where.push(`p.categoria = ${params.length}`);
     }
 
     if (activo !== undefined) {
       params.push(activo === "true");
-      where.push(`p.activo = $${params.length}`);
+      where.push(`p.activo = ${params.length}`);
     }
 
     if (q) {
       params.push(`%${q}%`);
-      where.push(`(p.nombre ILIKE $${params.length} OR p.descripcion ILIKE $${params.length})`);
+      where.push(`(p.nombre ILIKE ${params.length} OR p.descripcion ILIKE ${params.length})`);
     }
 
     const lim = Math.max(1, parseInt(limit) || 100);
@@ -103,7 +133,7 @@ exports.list = async (req, res) => {
        LEFT JOIN users u ON u.id = p.creado_por
        WHERE ${where.join(" AND ")}
        ORDER BY p.orden ASC, p.created_at DESC
-       LIMIT $${params.length - 1} OFFSET $${params.length}`,
+       LIMIT ${params.length - 1} OFFSET ${params.length}`,
       params
     );
 
