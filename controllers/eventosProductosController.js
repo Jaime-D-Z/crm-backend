@@ -247,27 +247,30 @@ exports.getUsuariosUnicos = async (req, res) => {
   try {
     const rows = await query(`
       SELECT 
-        session_id,
-        ip,
-        device_type,
-        MIN(created_at) as primera_visita,
-        MAX(created_at) as ultima_actividad,
+        e.session_id,
+        e.ip,
+        e.device_type,
+        s.email,
+        s.nombre as suscriptor_nombre,
+        MIN(e.created_at) as primera_visita,
+        MAX(e.created_at) as ultima_actividad,
         COUNT(*) as total_eventos,
-        COUNT(DISTINCT producto_id) as productos_vistos,
-        COUNT(CASE WHEN tipo_evento = 'contacto_click' THEN 1 END) as contactos,
+        COUNT(DISTINCT e.producto_id) as productos_vistos,
+        COUNT(CASE WHEN e.tipo_evento = 'contacto_click' THEN 1 END) as contactos,
         -- Calcular tiempo en página (diferencia entre primera y última actividad)
-        EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at)))::INTEGER as tiempo_en_pagina_segundos,
+        EXTRACT(EPOCH FROM (MAX(e.created_at) - MIN(e.created_at)))::INTEGER as tiempo_en_pagina_segundos,
         -- Formatear tiempo en minutos y segundos
         CASE 
-          WHEN EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) < 60 THEN
-            EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at)))::INTEGER || 's'
+          WHEN EXTRACT(EPOCH FROM (MAX(e.created_at) - MIN(e.created_at))) < 60 THEN
+            EXTRACT(EPOCH FROM (MAX(e.created_at) - MIN(e.created_at)))::INTEGER || 's'
           ELSE
-            (EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) / 60)::INTEGER || 'm ' ||
-            (EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at)))::INTEGER % 60) || 's'
+            (EXTRACT(EPOCH FROM (MAX(e.created_at) - MIN(e.created_at))) / 60)::INTEGER || 'm ' ||
+            (EXTRACT(EPOCH FROM (MAX(e.created_at) - MIN(e.created_at)))::INTEGER % 60) || 's'
         END as tiempo_formateado
-      FROM eventos_productos
-      WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
-      GROUP BY session_id, ip, device_type
+      FROM eventos_productos e
+      LEFT JOIN suscriptores s ON (e.ip = s.ip OR e.ip LIKE '%' || s.ip || '%' OR s.ip LIKE '%' || e.ip || '%') AND s.activo = true
+      WHERE e.created_at >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY e.session_id, e.ip, e.device_type, s.email, s.nombre
       ORDER BY ultima_actividad DESC
       LIMIT 50
     `);
