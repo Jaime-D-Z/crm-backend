@@ -61,6 +61,7 @@ const ausenciasCtrl = require("./controllers/ausenciasController");
 const reportCtrl = require("./controllers/reportController");
 const productosCtrl = require("./controllers/productosController");
 const eventosProductosCtrl = require("./controllers/eventosProductosController");
+const marketingCtrl = require("./controllers/marketingController");
 const pedidosCtrl = require("./controllers/pedidosController");
 const { initFaceApi } = require("./services/faceApiService");
 
@@ -629,6 +630,12 @@ app.get("/api/productos/publicos/:id", productosCtrl.getPublic);
 
 // ── Tracking de eventos (sin autenticación) ─────────────────
 app.post("/api/eventos/track", eventosProductosCtrl.track);
+
+// ── Marketing (sin autenticación) ────────────────────────────
+app.post("/api/marketing/suscribir", marketingCtrl.addSuscriptor);
+app.post("/api/marketing/validar-cupon", marketingCtrl.validarCupon);
+app.post("/api/marketing/aplicar-cupon", marketingCtrl.aplicarCupon);
+app.post("/api/marketing/enviar-cupon", marketingCtrl.enviarEmailCupon);
 
 // ── Pedidos / Checkout (sin autenticación) ──────────────────
 app.post("/api/pedidos", pedidosCtrl.create);
