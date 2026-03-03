@@ -3,14 +3,14 @@ const { query } = require("../core/db");
 const { v4: uuid } = require("uuid");
 const nodemailer = require("nodemailer");
 
-// Configurar transporter de email (ajustar según tu servicio)
+// Configurar transporter de email
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: process.env.SMTP_PORT || 587,
-  secure: false,
+  host: process.env.MAIL_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.MAIL_PORT) || 587,
+  secure: process.env.MAIL_SECURE === 'true',
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS
   }
 });
 
@@ -369,7 +369,7 @@ exports.enviarEmailCupon = async (req, res) => {
 
     // Enviar email
     const mailOptions = {
-      from: process.env.SMTP_FROM || 'noreply@tuempresa.com',
+      from: process.env.MAIL_FROM || 'noreply@tuempresa.com',
       to: email,
       subject: `¡${nombre || 'Hola'}! Tenemos un 10% de descuento especial para ti`,
       html: `
