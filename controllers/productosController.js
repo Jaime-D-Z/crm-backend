@@ -292,9 +292,23 @@ exports.getStats = async (req, res) => {
       ORDER BY total DESC
     `);
 
+    // Convertir valores numéricos
+    const statsData = stats[0];
+    const formattedStats = {
+      total: parseInt(statsData.total) || 0,
+      activos: parseInt(statsData.activos) || 0,
+      inactivos: parseInt(statsData.inactivos) || 0,
+      destacados: parseInt(statsData.destacados) || 0,
+      categorias: parseInt(statsData.categorias) || 0,
+      stock_total: parseInt(statsData.stock_total) || 0,
+      precio_promedio: parseFloat(statsData.precio_promedio) || 0,
+      precio_minimo: parseFloat(statsData.precio_minimo) || 0,
+      precio_maximo: parseFloat(statsData.precio_maximo) || 0
+    };
+
     res.json({ 
       ok: true, 
-      stats: stats[0],
+      stats: formattedStats,
       categorias 
     });
   } catch (e) {

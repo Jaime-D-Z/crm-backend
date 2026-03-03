@@ -100,13 +100,30 @@ exports.getStats = async (req, res) => {
 
     // Calcular tasa de conversión (vistas → contacto)
     const s = stats[0];
-    const tasaConversion = s.vistas_producto > 0 
-      ? ((s.clicks_contacto / s.vistas_producto) * 100).toFixed(2)
+    const vistasProducto = parseInt(s.vistas_producto) || 0;
+    const clicksContacto = parseInt(s.clicks_contacto) || 0;
+    const tasaConversion = vistasProducto > 0 
+      ? ((clicksContacto / vistasProducto) * 100).toFixed(2)
       : 0;
+
+    const formattedStats = {
+      total_eventos: parseInt(s.total_eventos) || 0,
+      sesiones_unicas: parseInt(s.sesiones_unicas) || 0,
+      productos_vistos: parseInt(s.productos_vistos) || 0,
+      vistas_catalogo: parseInt(s.vistas_catalogo) || 0,
+      vistas_producto: vistasProducto,
+      vistas_detalle: parseInt(s.vistas_detalle) || 0,
+      clicks_contacto: clicksContacto,
+      filtros_usados: parseInt(s.filtros_usados) || 0,
+      mobile: parseInt(s.mobile) || 0,
+      desktop: parseInt(s.desktop) || 0,
+      tablet: parseInt(s.tablet) || 0,
+      tasa_conversion: parseFloat(tasaConversion)
+    };
 
     res.json({ 
       ok: true, 
-      stats: { ...s, tasa_conversion: parseFloat(tasaConversion) }
+      stats: formattedStats
     });
   } catch (e) {
     console.error("Eventos stats error:", e);
