@@ -254,7 +254,17 @@ exports.getUsuariosUnicos = async (req, res) => {
         MAX(created_at) as ultima_actividad,
         COUNT(*) as total_eventos,
         COUNT(DISTINCT producto_id) as productos_vistos,
-        COUNT(CASE WHEN tipo_evento = 'contacto_click' THEN 1 END) as contactos
+        COUNT(CASE WHEN tipo_evento = 'contacto_click' THEN 1 END) as contactos,
+        -- Calcular tiempo en página (diferencia entre primera y última actividad)
+        EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at)))::INTEGER as tiempo_en_pagina_segundos,
+        -- Formatear tiempo en minutos y segundos
+        CASE 
+          WHEN EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) < 60 THEN
+            EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at)))::INTEGER || 's'
+          ELSE
+            (EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) / 60)::INTEGER || 'm ' ||
+            (EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at)))::INTEGER % 60) || 's'
+        END as tiempo_formateado
       FROM eventos_productos
       WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'
       GROUP BY session_id, ip, device_type
