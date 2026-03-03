@@ -59,6 +59,8 @@ const proyCtrl = require("./controllers/proyectosController");
 const ventasCtrl = require("./controllers/ventasController");
 const ausenciasCtrl = require("./controllers/ausenciasController");
 const reportCtrl = require("./controllers/reportController");
+const productosCtrl = require("./controllers/productosController");
+const eventosProductosCtrl = require("./controllers/eventosProductosController");
 const { initFaceApi } = require("./services/faceApiService");
 
 const app = express();
@@ -614,6 +616,87 @@ app.delete(
   requireAdmin,
   checkPermission("Ventas", "eliminar"),
   ventasCtrl.remove
+);
+
+// ═══════════════════════════════════════════════════════════
+// API ROUTES - PRODUCTOS (E-COMMERCE)
+// ═══════════════════════════════════════════════════════════
+
+// ── Endpoints Públicos (sin autenticación) ──────────────────
+app.get("/api/productos/publicos", productosCtrl.listPublic);
+app.get("/api/productos/publicos/:id", productosCtrl.getPublic);
+
+// ── Tracking de eventos (sin autenticación) ─────────────────
+app.post("/api/eventos/track", eventosProductosCtrl.track);
+
+// ── Endpoints Admin (con autenticación) ─────────────────────
+app.get(
+  "/api/productos/stats",
+  requireAdmin,
+  checkPermission("Productos", "ver"),
+  productosCtrl.getStats
+);
+app.get(
+  "/api/productos",
+  requireAdmin,
+  checkPermission("Productos", "ver"),
+  productosCtrl.list
+);
+app.get(
+  "/api/productos/:id",
+  requireAdmin,
+  checkPermission("Productos", "ver"),
+  productosCtrl.get
+);
+app.post(
+  "/api/productos",
+  requireAdmin,
+  checkPermission("Productos", "crear"),
+  productosCtrl.create
+);
+app.put(
+  "/api/productos/:id",
+  requireAdmin,
+  checkPermission("Productos", "editar"),
+  productosCtrl.update
+);
+app.delete(
+  "/api/productos/:id",
+  requireAdmin,
+  checkPermission("Productos", "eliminar"),
+  productosCtrl.remove
+);
+
+// ── Analytics de Productos (admin) ──────────────────────────
+app.get(
+  "/api/eventos/stats",
+  requireAdmin,
+  checkPermission("Ventas", "ver"),
+  eventosProductosCtrl.getStats
+);
+app.get(
+  "/api/eventos/top-productos",
+  requireAdmin,
+  checkPermission("Ventas", "ver"),
+  eventosProductosCtrl.getTopProductos
+);
+app.get(
+  "/api/eventos/evolutivo",
+  requireAdmin,
+  checkPermission("Ventas", "ver"),
+  eventosProductosCtrl.getEvolutivo
+);
+app.get(
+  "/api/eventos/recientes",
+  requireAdmin,
+  checkPermission("Ventas", "ver"),
+  eventosProductosCtrl.getRecientes
+);
+app.get(
+  "/api/eventos/por-tipo",
+  requireAdmin,
+  checkPermission("Ventas", "ver"),
+  eventosProductosCtrl.getPorTipo
 );
 
 // ═══════════════════════════════════════════════════════════
