@@ -4,7 +4,7 @@
 
 -- Tabla de suscriptores
 CREATE TABLE IF NOT EXISTS suscriptores (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id VARCHAR(36) PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     nombre VARCHAR(255),
     ip VARCHAR(100),
@@ -17,11 +17,11 @@ CREATE TABLE IF NOT EXISTS suscriptores (
 
 -- Tabla de cupones de descuento
 CREATE TABLE IF NOT EXISTS cupones (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id VARCHAR(36) PRIMARY KEY,
     codigo VARCHAR(50) UNIQUE NOT NULL,
     tipo VARCHAR(20) DEFAULT 'porcentaje', -- porcentaje, monto_fijo
     valor DECIMAL(10, 2) NOT NULL, -- 10 para 10%, o monto fijo
-    producto_id UUID REFERENCES productos(id) ON DELETE SET NULL, -- NULL = aplica a todos
+    producto_id VARCHAR(36) REFERENCES productos(id) ON DELETE SET NULL, -- NULL = aplica a todos
     email_destinatario VARCHAR(255), -- NULL = público, o email específico
     ip_destinatario VARCHAR(100), -- Para cupones personalizados por IP
     usos_maximos INTEGER DEFAULT 1,
@@ -35,9 +35,9 @@ CREATE TABLE IF NOT EXISTS cupones (
 
 -- Tabla de uso de cupones (historial)
 CREATE TABLE IF NOT EXISTS cupones_uso (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    cupon_id UUID REFERENCES cupones(id) ON DELETE CASCADE,
-    pedido_id UUID, -- Si se integra con pedidos
+    id VARCHAR(36) PRIMARY KEY,
+    cupon_id VARCHAR(36) REFERENCES cupones(id) ON DELETE CASCADE,
+    pedido_id VARCHAR(36), -- Si se integra con pedidos
     email VARCHAR(255),
     ip VARCHAR(100),
     descuento_aplicado DECIMAL(10, 2),
@@ -62,9 +62,11 @@ END;
 $$ language 'plpgsql';
 
 -- Triggers para updated_at
+DROP TRIGGER IF EXISTS update_suscriptores_updated_at ON suscriptores;
 CREATE TRIGGER update_suscriptores_updated_at BEFORE UPDATE ON suscriptores
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_cupones_updated_at ON cupones;
 CREATE TRIGGER update_cupones_updated_at BEFORE UPDATE ON cupones
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
