@@ -363,7 +363,7 @@ exports.enviarEmailCupon = async (req, res) => {
 
     const { email, nombre } = suscriptor[0];
     const precioConDescuento = (producto.precio * 0.9).toFixed(2);
-    const linkProducto = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/ventas?cupon=${codigo}&producto=${producto.id}`;
+    const linkProducto = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/tienda?cupon=${codigo}&producto=${producto.id}`;
 
     console.log(`[Marketing] Preparando email para: ${email}`);
 
