@@ -268,3 +268,62 @@ exports.getUsuariosUnicos = async (req, res) => {
     res.status(500).json({ error: "Error del servidor" });
   }
 };
+
+
+// ── Funnel de Checkout ────────────────────────────────────────
+exports.getCheckoutFunnel = async (req, res) => {
+  try {
+    const { desde, hasta } = req.query;
+    
+    let dateFilter = "";
+    const params = [];
+
+    if (desde && hasta) {
+      params.push(desde, hasta);
+      dateFilter = `WHERE created_at >= $1 AND created_at <= $2`;
+    } else {
+      dateFilter = `WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'`;
+    }
+
+    const funnel = await query(
+      `SELECT 
+        COUNT(CASE WHEN tipo_evento = 'producto_agregado_carrito' THEN 1 END) as agregados_carrito,
+        COUNT(CASE WHEN tipo_evento = 'checkout_iniciado' THEN 1 END) as checkout_iniciado,
+        COUNT(CASE WHEN tipo_evento = 'checkout_paso_1_completado' THEN 1 END) as paso_1_completado,
+        COUNT(CASE WHEN tipo_evento = 'checkout_abandonado' THEN 1 END) as checkout_abandonado,
+        COUNT(CASE WHEN tipo_evento = 'compra_completada' THEN 1 END) as compras_completadas
+       FROM eventos_productos
+       ${dateFilter}`,
+      params
+    );
+
+    const stats = funnel[0];
+    
+    // Calcular tasas de conversión
+    const agregados = parseInt(stats.agregados_carrito) || 0;
+    const iniciados = parseInt(stats.checkout_iniciado) || 0;
+    const completados = parseInt(stats.compras_completadas) || 0;
+    const abandonados = parseInt(stats.checkout_abandonado) || 0;
+
+    const tasaInicio = agregados > 0 ? ((iniciados / agregados) * 100).toFixed(2) : 0;
+    const tasaCompletado = iniciados > 0 ? ((completados / iniciados) * 100).toFixed(2) : 0;
+    const tasaAbandono = iniciados > 0 ? ((abandonados / iniciados) * 100).toFixed(2) : 0;
+
+    res.json({
+      ok: true,
+      funnel: {
+        agregados_carrito: agregados,
+        checkout_iniciado: iniciados,
+        paso_1_completado: parseInt(stats.paso_1_completado) || 0,
+        checkout_abandonado: abandonados,
+        compras_completadas: completados,
+        tasa_inicio: parseFloat(tasaInicio),
+        tasa_completado: parseFloat(tasaCompletado),
+        tasa_abandono: parseFloat(tasaAbandono)
+      }
+    });
+  } catch (e) {
+    console.error("Checkout funnel error:", e);
+    res.status(500).json({ error: "Error del servidor" });
+  }
+};

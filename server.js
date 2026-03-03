@@ -709,6 +709,12 @@ app.get(
   checkPermission("Ventas", "ver"),
   eventosProductosCtrl.getUsuariosUnicos
 );
+app.get(
+  "/api/eventos/checkout-funnel",
+  requireAdmin,
+  checkPermission("Ventas", "ver"),
+  eventosProductosCtrl.getCheckoutFunnel
+);
 
 // ── Pedidos Admin ───────────────────────────────────────────
 app.get(
